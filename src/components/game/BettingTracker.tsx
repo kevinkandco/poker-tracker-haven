@@ -63,7 +63,8 @@ const BettingTracker = () => {
   }
 
   const activePlayers = gameState.players.filter(player => !player.folded);
-  const activePlayer = activePlayers[activePlayerIndex % activePlayers.length];
+  const activePlayer = activePlayers.length > 0 ? 
+    activePlayers[activePlayerIndex % activePlayers.length] : null;
   
   const handleNextPlayer = () => {
     if (activePlayers.length <= 1) {
@@ -150,8 +151,7 @@ const BettingTracker = () => {
 
   const getDealerName = () => {
     if (gameState.dealerIndex === undefined) return null;
-    const dealer = gameState.players[gameState.dealerIndex];
-    return dealer ? dealer.name : null;
+    return gameState.players[gameState.dealerIndex]?.name || null;
   };
 
   const winnerName = getWinnerName();
@@ -201,11 +201,13 @@ const BettingTracker = () => {
       />
 
       {/* Next Action Cards */}
-      <NextActionCard 
-        gameState={gameState}
-        activePlayer={activePlayer}
-        onNextPlayer={handleNextPlayer}
-      />
+      {activePlayer && (
+        <NextActionCard 
+          gameState={gameState}
+          activePlayer={activePlayer}
+          onNextPlayer={handleNextPlayer}
+        />
+      )}
       
       {/* Player Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">

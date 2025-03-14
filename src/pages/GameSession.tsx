@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import Header from '@/components/layout/Header';
 import Container from '@/components/layout/Container';
@@ -112,7 +111,7 @@ const GameSession = () => {
 
   // Get player seating arrangement visualization
   const getTableVisualization = () => {
-    if (!gameInProgress || !gameState.dealerIndex === undefined) return null;
+    if (!gameInProgress || gameState.dealerIndex === undefined) return null;
     
     const numPlayers = gameState.players.length;
     if (numPlayers < 2) return null;
@@ -301,6 +300,7 @@ const GameSession = () => {
               Follow these steps to play a hand of Texas Hold'em Poker
             </DialogDescription>
           </DialogHeader>
+          
           <div className="overflow-y-auto max-h-[70vh] pr-2">
             <div className="space-y-6 text-sm">
               {/* Game Setup Section */}
