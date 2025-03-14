@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { useGameContext } from '@/contexts/GameContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { getTotalPot, getCurrentRoundLabel } from './utils/gameHelpers';
+import { Button } from '@/components/ui/button';
 
 // Component imports
 import GameInfoHeader from './GameInfoHeader';
