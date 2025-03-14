@@ -7,14 +7,11 @@ import { getTotalPot, getCurrentRoundLabel } from './utils/gameHelpers';
 import { Button } from '@/components/ui/button';
 
 // Component imports
-import GameInfoHeader from './GameInfoHeader';
 import TableStructureCard from './TableStructureCard';
 import PotDisplay from './PotDisplay';
-import AutoAdvanceToggle from './AutoAdvanceToggle';
 import GameStageTracker from './GameStageTracker';
 import NextActionCard from './NextActionCard';
 import PlayerCard from './PlayerCard';
-import GameControlButtons from './GameControlButtons';
 import ShareDialog from './dialogs/ShareDialog';
 import WinnerDialog from './dialogs/WinnerDialog';
 
@@ -37,7 +34,7 @@ const BettingTracker = () => {
   const [showWinnerDialog, setShowWinnerDialog] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<string>("");
   const [autoAdvance, setAutoAdvance] = useState(true);
-  const [isAdvancing, setIsAdvancing] = useState(false); // Add state to track if we're in the process of advancing
+  const [isAdvancing, setIsAdvancing] = useState(false);
   const shareUrl = getShareUrl();
   
   // Navigate to home if no game in progress
@@ -51,7 +48,7 @@ const BettingTracker = () => {
   useEffect(() => {
     if (autoAdvance && isRoundComplete() && !gameState.winner && !isAdvancing) {
       // Add small delay for visual feedback
-      setIsAdvancing(true); // Set flag to prevent multiple triggers
+      setIsAdvancing(true);
       
       const timer = setTimeout(() => {
         handleNextRound();
@@ -178,41 +175,17 @@ const BettingTracker = () => {
   const totalPot = getTotalPot(gameState.players);
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-8 animate-fade-in pb-12">
-      {/* Game info header */}
-      <GameInfoHeader 
-        currentHand={gameState.currentHand}
-        currentRound={gameState.currentRound}
-        blinds={gameState.blinds}
-        dealerName={dealerName}
-        winnerName={winnerName}
-      />
+    <div className="w-full max-w-3xl mx-auto space-y-6 animate-fade-in pb-12">
+      {/* Single consolidated game info card */}
+      <div className="flex justify-between items-center bg-card p-3 rounded-lg border border-border shadow-sm">
+        <div className="flex items-center gap-2">
+          <div className="text-sm text-muted-foreground">Hand #{gameState.currentHand} • {getCurrentRoundLabel(gameState.currentRound)}</div>
+          <div className="text-xs px-2 py-0.5 bg-secondary/30 rounded-full">${gameState.blinds.small}/${gameState.blinds.big}</div>
+        </div>
+        <div className="font-semibold">Pot: ${totalPot}</div>
+      </div>
       
-      {/* Dealer and Blinds Info Card */}
-      {!gameState.winner && gameState.dealerIndex !== undefined && (
-        <TableStructureCard 
-          dealerIndex={gameState.dealerIndex}
-          players={gameState.players}
-          blinds={gameState.blinds}
-        />
-      )}
-      
-      {/* Pot Display Card */}
-      <PotDisplay 
-        players={gameState.players}
-        gameState={gameState}
-        onShowShareDialog={() => setShowShareDialog(true)}
-        onIncreaseBlindLevel={handleIncreaseBlindLevel}
-        onShowWinnerDialog={() => setShowWinnerDialog(true)}
-      />
-
-      {/* Auto-advance toggle */}
-      <AutoAdvanceToggle 
-        autoAdvance={autoAdvance}
-        onToggle={() => setAutoAdvance(!autoAdvance)}
-      />
-
-      {/* Texas Hold'em Step Tracker */}
+      {/* Main Game Stage & Action Card */}
       <GameStageTracker 
         currentRound={gameState.currentRound}
         activePlayers={activePlayers}
@@ -221,8 +194,8 @@ const BettingTracker = () => {
         onNextRound={handleNextRound}
         onNewHand={handleNewHand}
       />
-
-      {/* Next Action Cards */}
+      
+      {/* Next Action Instructions (only if active player exists) */}
       {activePlayer && (
         <NextActionCard 
           gameState={gameState}
@@ -232,7 +205,7 @@ const BettingTracker = () => {
       )}
       
       {/* Player Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {gameState.players.map((player, index) => (
           <PlayerCard 
             key={player.id} 
@@ -247,7 +220,7 @@ const BettingTracker = () => {
         ))}
       </div>
       
-      {/* End Game Button - Keep this at the bottom */}
+      {/* End Game Button */}
       <div className="flex justify-center mt-4">
         <Button 
           variant="outline" 
@@ -258,7 +231,7 @@ const BettingTracker = () => {
         </Button>
       </div>
       
-      {/* Share Dialog */}
+      {/* Dialogs */}
       <ShareDialog 
         open={showShareDialog}
         onOpenChange={setShowShareDialog}
@@ -266,7 +239,6 @@ const BettingTracker = () => {
         onCopyLink={copyShareLink}
       />
 
-      {/* Winner Selection Dialog */}
       <WinnerDialog 
         open={showWinnerDialog}
         onOpenChange={setShowWinnerDialog}
