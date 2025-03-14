@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,8 @@ import {
   CheckCircle2, 
   UserRound, 
   CircleDot, 
-  Coins 
+  Coins,
+  ArrowDown
 } from 'lucide-react';
 import { useGameContext } from '@/contexts/GameContext';
 import { useNavigate } from 'react-router-dom';
@@ -47,6 +48,7 @@ const BettingTracker = () => {
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showWinnerDialog, setShowWinnerDialog] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<string>("");
+  const [autoAdvance, setAutoAdvance] = useState(true);
   const shareUrl = getShareUrl();
   
   // Navigate to home if no game in progress
@@ -79,7 +81,26 @@ const BettingTracker = () => {
   
   const handleNextRound = () => {
     nextRound();
-    toast.success(`Starting new round`);
+
+    // Show appropriate toast based on current round
+    const newRound = gameState.currentRound + 1;
+    switch(newRound) {
+      case 2:
+        toast.success("The Flop: Dealer reveals 3 community cards");
+        break;
+      case 3:
+        toast.success("The Turn: Dealer reveals 4th community card");
+        break;
+      case 4:
+        toast.success("The River: Dealer reveals 5th community card");
+        break;
+      case 5:
+        toast.success("Showdown: Players reveal their hands");
+        break;
+      default:
+        toast.success(`Starting new round ${newRound}`);
+    }
+
     // Reset to first player for new round
     setActivePlayerIndex(0);
   };
@@ -92,7 +113,7 @@ const BettingTracker = () => {
         (gameState.dealerIndex + 1) % gameState.players.length : 0);
       setDealer(nextDealerIndex);
       setActivePlayerIndex(0);
-      toast.success(`Dealer is now ${gameState.players[nextDealerIndex].name}`);
+      toast.success(`New hand started. Dealer is now ${gameState.players[nextDealerIndex].name}`);
     } else {
       setShowWinnerDialog(true);
     }
@@ -150,8 +171,29 @@ const BettingTracker = () => {
       case 2: return "Flop";
       case 3: return "Turn";
       case 4: return "River";
+      case 5: return "Showdown";
       default: return `Round ${gameState.currentRound}`;
     }
+  };
+
+  const getCurrentActionDescription = () => {
+    if (gameState.winner) {
+      return "Hand complete. Start a new hand.";
+    }
+    
+    if (!activePlayer) {
+      return "No active players. Start a new hand.";
+    }
+    
+    const roundDescriptions = [
+      `Pre-flop betting: ${activePlayer.name}'s turn to bet`,
+      `Flop betting: ${activePlayer.name}'s turn to bet`,
+      `Turn betting: ${activePlayer.name}'s turn to bet`,
+      `River betting: ${activePlayer.name}'s turn to bet`,
+      `Showdown: Players reveal their hands`
+    ];
+    
+    return roundDescriptions[Math.min(gameState.currentRound - 1, roundDescriptions.length - 1)];
   };
 
   const getNextActionText = () => {
@@ -159,11 +201,39 @@ const BettingTracker = () => {
       return "Start new hand";
     }
     
+    if (gameState.currentRound === 5) {
+      return "Showdown - Select Winner";
+    }
+    
     if (activePlayer) {
       return `${activePlayer.name}'s turn to bet`;
     }
     
     return "Next player's turn";
+  };
+
+  const getNextStepInstructions = () => {
+    if (gameState.winner) {
+      return "Click 'New Hand' to deal the next hand";
+    }
+    
+    if (gameState.currentRound === 5) {
+      return "Click 'Mark Winner' to select who won this hand";
+    }
+    
+    if (activePlayers.length <= 1) {
+      return "Only one player left. End the hand or proceed to next round";
+    }
+    
+    const roundInstructions = [
+      "Players bet in turn, starting left of big blind", // Pre-flop
+      "Dealer placed 3 community cards. Players bet in turn", // Flop
+      "Dealer placed 4th community card. Players bet in turn", // Turn
+      "Dealer placed 5th community card. Players bet in turn", // River
+      "Players reveal their hands. Select the winner" // Showdown
+    ];
+    
+    return roundInstructions[Math.min(gameState.currentRound - 1, roundInstructions.length - 1)];
   };
 
   return (
@@ -199,6 +269,37 @@ const BettingTracker = () => {
           )}
         </div>
       </div>
+      
+      {/* Dealer and Blinds Info Card */}
+      {!gameState.winner && gameState.dealerIndex !== undefined && (
+        <Card className="bg-card border border-primary/10 shadow-sm overflow-hidden">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="font-medium">Texas Hold'em Structure</Badge>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <span className="font-bold">D</span>
+                  <span>{gameState.players[gameState.dealerIndex].name}</span>
+                </Badge>
+                
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <span>SB</span>
+                  <span>{formatCurrency(gameState.blinds.small)}</span>
+                  <span>{gameState.players[(gameState.dealerIndex + 1) % gameState.players.length].name}</span>
+                </Badge>
+                
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <span>BB</span>
+                  <span>{formatCurrency(gameState.blinds.big)}</span>
+                  <span>{gameState.players[(gameState.dealerIndex + 2) % gameState.players.length].name}</span>
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       
       <Card className="bg-card border border-border shadow-sm overflow-hidden">
         <CardContent className="p-6">
@@ -275,6 +376,36 @@ const BettingTracker = () => {
         </CardContent>
       </Card>
 
+      {/* Texas Hold'em Step Tracker */}
+      <Card className="bg-card border border-amber-200/50 shadow-sm overflow-hidden">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <Badge variant="secondary" className="font-medium">
+                Current Stage: {currentRoundLabel()}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="font-normal"
+              >
+                Hand Progress: {Math.min(gameState.currentRound, 5)}/5
+              </Badge>
+            </div>
+            
+            <div className="w-full bg-secondary/30 rounded-full h-2.5">
+              <div 
+                className="bg-primary h-2.5 rounded-full" 
+                style={{ width: `${Math.min(gameState.currentRound * 20, 100)}%` }}
+              ></div>
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              {getNextStepInstructions()}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Next Action Card */}
       <Card className="bg-card border border-primary/30 shadow-sm overflow-hidden">
         <CardContent className="p-4">
@@ -294,6 +425,16 @@ const BettingTracker = () => {
                 <ArrowRight className="ml-1.5 h-4 w-4" />
               </Button>
             )}
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* Current Action Description */}
+      <Card className="bg-card border-l-4 border-l-primary border shadow-sm overflow-hidden">
+        <CardContent className="p-4">
+          <div className="flex items-center">
+            <ArrowDown className="h-4 w-4 mr-2 text-primary animate-bounce" />
+            <p className="text-sm font-medium">{getCurrentActionDescription()}</p>
           </div>
         </CardContent>
       </Card>

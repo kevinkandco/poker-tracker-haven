@@ -453,14 +453,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Add a bet for a player
   const addBet = (playerId: string, amount: number) => {
-    setGameState(prevState => ({
-      ...prevState,
-      players: prevState.players.map(player => {
+    setGameState(prevState => {
+      const updatedPlayers = prevState.players.map(player => {
         if (player.id === playerId) {
           // Don't allow betting more than current stack
           const validAmount = Math.min(amount, player.currentStack);
           
-          return {
+          const updatedPlayer = {
             ...player,
             currentStack: player.currentStack - validAmount,
             bets: [
@@ -469,10 +468,22 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             ],
             totalBet: player.totalBet + validAmount,
           };
+          
+          // Show toast for the bet
+          const roundNames = ["Pre-flop", "Flop", "Turn", "River", "Showdown"];
+          const roundName = roundNames[Math.min(prevState.currentRound - 1, roundNames.length - 1)];
+          toast.success(`${player.name} bet ${validAmount} on ${roundName}`);
+          
+          return updatedPlayer;
         }
         return player;
-      }),
-    }));
+      });
+      
+      return {
+        ...prevState,
+        players: updatedPlayers,
+      };
+    });
   };
 
   // Update the current bet amount before submitting
@@ -525,15 +536,22 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Move to the next round
   const nextRound = () => {
-    setGameState(prevState => ({
-      ...prevState,
-      currentRound: prevState.currentRound + 1,
-      players: prevState.players.map(player => ({
-        ...player,
-        currentBet: undefined,
-        folded: false, // Reset folded status for new round
-      })),
-    }));
+    setGameState(prevState => {
+      // Determine next round name for toast message
+      const newRound = prevState.currentRound + 1;
+      const roundNames = ["Pre-flop", "Flop", "Turn", "River", "Showdown"];
+      const roundName = roundNames[Math.min(newRound - 1, roundNames.length - 1)];
+      
+      return {
+        ...prevState,
+        currentRound: newRound,
+        players: prevState.players.map(player => ({
+          ...player,
+          currentBet: undefined,
+          folded: player.folded, // Maintain folded status between rounds
+        })),
+      };
+    });
   };
 
   // Mark a player as the winner and award them the pot
@@ -553,7 +571,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return player;
       });
       
-      toast.success(`${updatedPlayers.find(p => p.id === playerId)?.name} won ${totalPot}!`);
+      const winnerName = updatedPlayers.find(p => p.id === playerId)?.name;
+      toast.success(`${winnerName} won ${totalPot}!`, {
+        description: "Click 'New Hand' to start the next hand"
+      });
       
       return {
         ...prevState,
@@ -565,21 +586,30 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Reset for a new hand
   const resetHand = () => {
-    setGameState(prevState => ({
-      ...prevState,
-      currentRound: 1, // Reset to first round
-      currentHand: prevState.currentHand + 1, // Increment hand counter
-      winner: undefined, // Clear winner
-      players: prevState.players.map(player => ({
-        ...player,
-        bets: [], // Clear all bets for this hand
-        totalBet: 0, // Reset total bet
-        currentBet: undefined, // Clear current bet
-        folded: false, // Reset folded status
-      })),
-    }));
+    setGameState(prevState => {
+      // Next dealer index
+      const nextDealerIndex = (prevState.dealerIndex !== undefined ? 
+        (prevState.dealerIndex + 1) % prevState.players.length : 0);
+      
+      return {
+        ...prevState,
+        currentRound: 1, // Reset to first round
+        currentHand: prevState.currentHand + 1, // Increment hand counter
+        winner: undefined, // Clear winner
+        dealerIndex: nextDealerIndex, // Move dealer button
+        players: prevState.players.map(player => ({
+          ...player,
+          bets: [], // Clear all bets for this hand
+          totalBet: 0, // Reset total bet
+          currentBet: undefined, // Clear current bet
+          folded: false, // Reset folded status
+        })),
+      };
+    });
     
-    toast.success(`Starting Hand #${gameState.currentHand + 1}`);
+    toast.success(`Starting Hand #${gameState.currentHand + 1}`, {
+      description: "Dealer deals 2 cards to each player"
+    });
   };
 
   // Increase the blind level
@@ -625,19 +655,26 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Mark a player as folded for the current round
   const fold = (playerId: string) => {
-    setGameState(prevState => ({
-      ...prevState,
-      players: prevState.players.map(player => {
-        if (player.id === playerId) {
-          return {
-            ...player,
-            folded: true,
-            currentBet: undefined, // Clear any pending bet
-          };
-        }
-        return player;
-      }),
-    }));
+    setGameState(prevState => {
+      const player = prevState.players.find(p => p.id === playerId);
+      const playerName = player ? player.name : 'Player';
+
+      toast.info(`${playerName} folded`);
+      
+      return {
+        ...prevState,
+        players: prevState.players.map(player => {
+          if (player.id === playerId) {
+            return {
+              ...player,
+              folded: true,
+              currentBet: undefined, // Clear any pending bet
+            };
+          }
+          return player;
+        }),
+      };
+    });
   };
 
   // End the current game
