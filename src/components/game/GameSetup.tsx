@@ -1,9 +1,8 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowRight, Plus, User, DollarSign, Copy, Share2, Switch } from 'lucide-react';
+import { ArrowRight, Plus, User, DollarSign, Copy, Share2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useGameContext } from '@/contexts/GameContext';
@@ -18,6 +17,7 @@ import {
   DialogFooter
 } from '@/components/ui/dialog';
 import JoinGameForm from './JoinGameForm';
+import { Switch } from '@/components/ui/switch';
 
 interface Player {
   id: string;
@@ -37,14 +37,12 @@ const GameSetup = () => {
   const [allowAnonymousJoin, setAllowAnonymousJoin] = useState(false);
   const shareUrl = getShareUrl();
 
-  // Check URL for invite code or game ID
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const gameId = params.get('gameId');
     const inviteCode = params.get('invite');
     
     if ((gameId || inviteCode) && gameState.players.length === 0) {
-      // We have a gameId or inviteCode but no loaded game, show a message
       toast.info(inviteCode ? "Joining game..." : "Loading shared game...");
     }
   }, [gameState.players.length]);
@@ -92,25 +90,21 @@ const GameSetup = () => {
   };
 
   const handleStartGame = () => {
-    // Validate all players have names
     const emptyNames = players.some(player => !player.name.trim());
     if (emptyNames) {
       toast.error("All players must have names");
       return;
     }
 
-    // Validate unique player names
     const names = players.map(p => p.name.trim());
     if (new Set(names).size !== names.length) {
       toast.error("All player names must be unique");
       return;
     }
 
-    // Check URL for game ID
     const params = new URLSearchParams(window.location.search);
     const gameId = params.get('gameId');
 
-    // Start the game
     startGame({
       players: players.map(p => ({
         id: p.id,
@@ -131,12 +125,10 @@ const GameSetup = () => {
       allowAnonymousJoin: allowAnonymousJoin
     });
     
-    // Call toggleAnonymousJoin if we want to allow anonymous joining
     if (allowAnonymousJoin) {
       toggleAnonymousJoin();
     }
     
-    // Show share dialog after game starts
     setShowShareDialog(true);
   };
 
@@ -232,15 +224,13 @@ const GameSetup = () => {
           />
 
           <div className="flex items-center space-x-2 py-2">
-            <Label htmlFor="allow-anonymous" className="cursor-pointer flex items-center space-x-2">
-              <input 
-                id="allow-anonymous"
-                type="checkbox"
-                checked={allowAnonymousJoin}
-                onChange={handleAnonymousToggle}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-              />
-              <span>Allow anonymous players to join via link</span>
+            <Switch 
+              id="allow-anonymous" 
+              checked={allowAnonymousJoin}
+              onCheckedChange={handleAnonymousToggle}
+            />
+            <Label htmlFor="allow-anonymous">
+              Allow anonymous players to join via link
             </Label>
           </div>
 
@@ -256,7 +246,6 @@ const GameSetup = () => {
         </div>
       </div>
 
-      {/* Share Dialog */}
       <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
         <DialogContent>
           <DialogHeader>
