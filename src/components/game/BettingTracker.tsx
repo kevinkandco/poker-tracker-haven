@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useGameContext } from '@/contexts/GameContext';
 import { useNavigate } from 'react-router-dom';
@@ -36,6 +35,7 @@ const BettingTracker = () => {
   const [showWinnerDialog, setShowWinnerDialog] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<string>("");
   const [autoAdvance, setAutoAdvance] = useState(true);
+  const [isAdvancing, setIsAdvancing] = useState(false); // Add state to track if we're in the process of advancing
   const shareUrl = getShareUrl();
   
   // Navigate to home if no game in progress
@@ -47,16 +47,21 @@ const BettingTracker = () => {
   
   // Auto advance to next round when round is complete
   useEffect(() => {
-    if (autoAdvance && isRoundComplete() && !gameState.winner) {
+    if (autoAdvance && isRoundComplete() && !gameState.winner && !isAdvancing) {
       // Add small delay for visual feedback
+      setIsAdvancing(true); // Set flag to prevent multiple triggers
+      
       const timer = setTimeout(() => {
         handleNextRound();
-        toast.info("Automatically advancing to next round");
+        // Reset the advancing flag after a short delay to prevent multiple toasts
+        setTimeout(() => {
+          setIsAdvancing(false);
+        }, 500);
       }, 1500);
       
       return () => clearTimeout(timer);
     }
-  }, [gameState, autoAdvance, isRoundComplete]);
+  }, [gameState, autoAdvance, isRoundComplete, isAdvancing]);
   
   if (!gameState || !gameState.players || gameState.players.length === 0) {
     return null;
