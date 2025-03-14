@@ -9,8 +9,9 @@ import { useLocation } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import JoinGameForm from '@/components/game/JoinGameForm';
 import { toast } from 'sonner';
-import { Info } from 'lucide-react';
+import { Info, PlayCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 
 const GameSession = () => {
   const { gameState, loadGameByInviteCode } = useGameContext();
@@ -63,6 +64,51 @@ const GameSession = () => {
     setShowJoinDialog(false);
   };
 
+  // Get the current stage description based on round
+  const getCurrentGameStageDescription = () => {
+    if (!gameInProgress) return null;
+    
+    if (gameState.winner) {
+      return {
+        title: "Hand Complete",
+        description: `${gameState.players.find(p => p.id === gameState.winner)?.name} won the pot!`,
+        nextAction: "Click 'New Hand' to deal again"
+      };
+    }
+    
+    const stages = [
+      {
+        title: "Pre-Flop Betting",
+        description: "Each player has received 2 cards. Betting starts with the player left of the big blind.",
+        nextAction: "Players call, raise, or fold"
+      },
+      {
+        title: "The Flop",
+        description: "Dealer has placed 3 community cards face up. Another round of betting begins.",
+        nextAction: "Players check, bet, or fold"
+      },
+      {
+        title: "The Turn",
+        description: "Dealer has placed the 4th community card face up. Another round of betting begins.",
+        nextAction: "Players check, bet, or fold"
+      },
+      {
+        title: "The River",
+        description: "Dealer has placed the 5th and final community card face up. The final betting round begins.",
+        nextAction: "Players check, bet, or fold"
+      },
+      {
+        title: "Showdown",
+        description: "All betting is complete. Players reveal their cards to determine the winner.",
+        nextAction: "Select the winner"
+      }
+    ];
+    
+    return stages[Math.min(gameState.currentRound - 1, stages.length - 1)];
+  };
+  
+  const stageInfo = getCurrentGameStageDescription();
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -80,7 +126,8 @@ const GameSession = () => {
         <Container className="px-4 md:px-6">
           {gameInProgress ? (
             <>
-              <div className="flex justify-end mb-2">
+              <div className="flex justify-between items-center mb-5">
+                <h2 className="text-2xl font-semibold tracking-tight">Poker Tracker</h2>
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -91,6 +138,22 @@ const GameSession = () => {
                   How to Play
                 </Button>
               </div>
+              
+              {stageInfo && (
+                <Card className="mb-6 bg-card border-l-4 border-l-primary">
+                  <CardContent className="p-4">
+                    <div className="flex gap-3 items-start">
+                      <PlayCircle className="h-5 w-5 mt-0.5 text-primary" />
+                      <div>
+                        <h3 className="font-medium text-lg">{stageInfo.title}</h3>
+                        <p className="text-muted-foreground">{stageInfo.description}</p>
+                        <p className="text-sm mt-1 font-medium text-primary">{stageInfo.nextAction}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
               <BettingTracker />
             </>
           ) : (
