@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,7 @@ import { PlusCircle, MinusCircle, RotateCw, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useGameContext } from '@/contexts/GameContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 interface PlayerCardProps {
   playerId: string;
@@ -33,6 +33,8 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   
   const player = gameState.players.find(p => p.id === playerId);
   const [betAmount, setBetAmount] = useState("");
+  const [showBuyInDialog, setShowBuyInDialog] = useState(false);
+  const [buyInAmount, setBuyInAmount] = useState<string>("");
   
   if (!player) return null;
   
@@ -65,13 +67,25 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
     fold(player.id);
   };
   
-  // Get current bet for this round
+  const handleBuyIn = () => {
+    const amount = parseInt(buyInAmount);
+    if (amount > 0) {
+      buyIn(player.id, amount);
+      setShowBuyInDialog(false);
+      setBuyInAmount("");
+    }
+  };
+
+  const quickBuyInOptions = [
+    player.buyIn / 2, // Half buy-in
+    player.buyIn,     // Full buy-in
+    player.buyIn * 2  // Double buy-in
+  ];
+
   const currentBet = player.currentBet || 0;
   
-  // Get total bets for this player
   const totalBet = player.totalBet || 0;
   
-  // Suggested bet amounts 
   const suggestedBets = [
     gameState.blinds.big * 2,  // Min raise
     gameState.blinds.big * 4,  // 2x raise
@@ -214,19 +228,69 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
           </CardFooter>
         )}
         
-        {!isActive && !player.folded && !gameState.winner && (
+        {!player.folded && (
           <CardFooter className="p-3 pt-0">
             <Button 
               variant="outline" 
               size="sm" 
               className="w-full h-8"
-              onClick={() => buyIn(player.id)}
+              onClick={() => setShowBuyInDialog(true)}
             >
-              <RotateCw className="h-3.5 w-3.5 mr-1" />
+              <PlusCircle className="h-3.5 w-3.5 mr-1" />
               Buy In
             </Button>
           </CardFooter>
         )}
+
+        <Dialog open={showBuyInDialog} onOpenChange={setShowBuyInDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Buy in for {player.name}</DialogTitle>
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+              <div className="flex flex-col space-y-2">
+                <p className="text-sm text-muted-foreground">Current stack: {formatCurrency(player.currentStack)}</p>
+                <p className="text-sm text-muted-foreground">Initial buy-in: {formatCurrency(player.buyIn)}</p>
+              </div>
+              
+              <div className="flex flex-wrap gap-2">
+                {quickBuyInOptions.map((amount, index) => (
+                  <Button 
+                    key={index}
+                    variant="outline" 
+                    onClick={() => setBuyInAmount(amount.toString())}
+                    className="flex-1"
+                  >
+                    {formatCurrency(amount)}
+                  </Button>
+                ))}
+              </div>
+              
+              <div className="space-y-2">
+                <label htmlFor="buy-in-amount" className="text-sm font-medium">
+                  Amount:
+                </label>
+                <Input
+                  id="buy-in-amount"
+                  type="number"
+                  min="1"
+                  value={buyInAmount}
+                  onChange={(e) => setBuyInAmount(e.target.value)}
+                  placeholder="Enter amount..."
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowBuyInDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleBuyIn} disabled={!buyInAmount || parseInt(buyInAmount) <= 0}>
+                Buy In
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </Card>
     </motion.div>
   );

@@ -35,7 +35,7 @@ interface GameContextType {
   submitBet: (playerId: string) => void;
   nextRound: () => void;
   increaseBlindLevel: () => void;
-  buyIn: (playerId: string) => void;
+  buyIn: (playerId: string, amount?: number) => void;
   fold: (playerId: string) => void;
   endGame: () => void;
   getShareUrl: () => string;
@@ -277,11 +277,33 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // Allow a player to buy in more chips
-  const buyIn = (playerId: string) => {
-    // Show toast for now, could be expanded to a dialog
-    toast("Buy-in feature coming soon!", {
-      description: "This feature will be available in the next update."
-    });
+  const buyIn = (playerId: string, amount: number = 0) => {
+    if (amount <= 0) {
+      // If no amount is provided, use the player's initial buy-in amount
+      const player = gameState.players.find(p => p.id === playerId);
+      if (player) {
+        amount = player.buyIn;
+      } else {
+        return;
+      }
+    }
+
+    setGameState(prevState => ({
+      ...prevState,
+      players: prevState.players.map(player => {
+        if (player.id === playerId) {
+          const newStack = player.currentStack + amount;
+          toast.success(`${player.name} bought in for $${amount}`, {
+            description: `New stack: $${newStack}`
+          });
+          return {
+            ...player,
+            currentStack: newStack,
+          };
+        }
+        return player;
+      }),
+    }));
   };
 
   // Mark a player as folded for the current round
