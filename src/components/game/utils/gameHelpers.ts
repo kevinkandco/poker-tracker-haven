@@ -20,6 +20,47 @@ export const getCurrentRoundLabel = (round: number): string => {
   }
 };
 
+// Get detailed betting instructions based on game state
+export const getNextActionInstructions = (gameState: any, activePlayers: any[]): string => {
+  // Handle win condition
+  if (gameState.winner) {
+    return "Hand complete! Click 'New Hand' to start the next hand.";
+  }
+  
+  // Handle single player left (everyone else folded)
+  if (activePlayers.length <= 1) {
+    return "Only one player remains! End the hand and select the winner.";
+  }
+  
+  // Get the dealer, small blind, and big blind positions
+  const { dealerIndex } = gameState;
+  
+  if (dealerIndex === undefined || gameState.players.length === 0) {
+    return "Start the game by selecting a dealer.";
+  }
+  
+  const smallBlindIndex = (dealerIndex + 1) % gameState.players.length;
+  const bigBlindIndex = (dealerIndex + 2) % gameState.players.length;
+  
+  // Round-specific instructions
+  switch(gameState.currentRound) {
+    case 1: 
+      return `Pre-flop betting: Small blind (${gameState.players[smallBlindIndex]?.name}) bet $${gameState.blinds.small}, ` +
+             `Big blind (${gameState.players[bigBlindIndex]?.name}) bet $${gameState.blinds.big}. ` +
+             "Players must call, raise, or fold.";
+    case 2:
+      return "Flop: First three community cards are dealt. Continue betting round.";
+    case 3:
+      return "Turn: Fourth community card is dealt. Continue betting round.";
+    case 4:
+      return "River: Final community card is dealt. Final betting round.";
+    case 5:
+      return "Showdown: All players reveal their hands. Select the winner to award the pot.";
+    default:
+      return "Continue the current betting round.";
+  }
+};
+
 // Get the current action description based on game state and active player
 export const getCurrentActionDescription = (
   gameState: any,

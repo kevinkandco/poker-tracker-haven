@@ -2,7 +2,10 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { getCurrentRoundLabel } from './utils/gameHelpers';
+import { 
+  getCurrentRoundLabel, 
+  getNextActionInstructions 
+} from './utils/gameHelpers';
 
 interface GameStageTrackerProps {
   currentRound: number;
@@ -15,26 +18,8 @@ const GameStageTracker: React.FC<GameStageTrackerProps> = ({
   activePlayers,
   gameState
 }) => {
-  // Simple instruction text based on current round
-  const getInstructions = () => {
-    if (gameState.winner) {
-      return "Hand complete. Start a new hand.";
-    }
-    
-    if (activePlayers.length <= 1) {
-      return "Only one player left. End the hand.";
-    }
-    
-    const instructions = [
-      "Pre-flop betting round in progress", 
-      "Flop betting round in progress", 
-      "Turn betting round in progress", 
-      "River betting round in progress", 
-      "Showdown - Select the winner"
-    ];
-    
-    return instructions[Math.min(currentRound - 1, instructions.length - 1)];
-  };
+  // Get detailed betting instructions based on the current game state
+  const instructions = getNextActionInstructions(gameState, activePlayers);
 
   return (
     <Card className="bg-card border border-amber-200/50 shadow-sm overflow-hidden">
@@ -59,8 +44,8 @@ const GameStageTracker: React.FC<GameStageTrackerProps> = ({
             ></div>
           </div>
 
-          <div className="text-sm text-muted-foreground">
-            {getInstructions()}
+          <div className="text-sm font-medium border-l-4 border-primary pl-3 py-1">
+            {instructions}
           </div>
         </div>
       </CardContent>

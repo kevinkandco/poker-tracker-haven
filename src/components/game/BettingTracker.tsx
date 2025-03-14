@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { useGameContext } from '@/contexts/GameContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { getTotalPot } from './utils/gameHelpers';
+import { getTotalPot, getCurrentRoundLabel } from './utils/gameHelpers';
 
 // Component imports
 import GameInfoHeader from './GameInfoHeader';
@@ -82,25 +83,37 @@ const BettingTracker = () => {
   };
   
   const handleNextRound = () => {
+    // Get round name before advancing
+    const currentRoundName = getCurrentRoundLabel(gameState.currentRound);
+    const nextRoundName = getCurrentRoundLabel(gameState.currentRound + 1);
+    
     nextRound();
 
     // Show appropriate toast based on current round
     const newRound = gameState.currentRound + 1;
     switch(newRound) {
       case 2:
-        toast.success("The Flop: Dealer reveals 3 community cards");
+        toast.success(`${currentRoundName} betting complete`, {
+          description: "Dealer reveals 3 community cards (The Flop)"
+        });
         break;
       case 3:
-        toast.success("The Turn: Dealer reveals 4th community card");
+        toast.success(`${currentRoundName} betting complete`, {
+          description: "Dealer reveals 4th community card (The Turn)"
+        });
         break;
       case 4:
-        toast.success("The River: Dealer reveals 5th community card");
+        toast.success(`${currentRoundName} betting complete`, {
+          description: "Dealer reveals 5th community card (The River)"
+        });
         break;
       case 5:
-        toast.success("Showdown: Players reveal their hands");
+        toast.success(`${currentRoundName} betting complete`, {
+          description: "Players reveal their hands (Showdown)"
+        });
         break;
       default:
-        toast.success(`Starting new round ${newRound}`);
+        toast.success(`Moving to ${nextRoundName}`);
     }
 
     // Reset to first player for new round

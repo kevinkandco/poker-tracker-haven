@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
-import { UserRound, Trophy } from 'lucide-react';
+import { UserRound, Trophy, Coins } from 'lucide-react';
 import { getCurrentRoundLabel } from './utils/gameHelpers';
 
 interface GameInfoHeaderProps {
@@ -28,10 +28,11 @@ const GameInfoHeader: React.FC<GameInfoHeaderProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-muted-foreground">
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="font-normal">Hand #{currentHand}</Badge>
-          <Badge variant="outline" className="font-normal">{getCurrentRoundLabel(currentRound)}</Badge>
+          <Badge variant="secondary" className="font-medium">{getCurrentRoundLabel(currentRound)}</Badge>
         </div>
         <div className="hidden sm:block">•</div>
-        <div>
+        <div className="flex items-center gap-1">
+          <Coins className="h-4 w-4 text-amber-500" />
           Blinds: ${blinds.small}/${blinds.big}
         </div>
         {dealerName && (
