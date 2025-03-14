@@ -33,7 +33,7 @@ const TableStructureCard: React.FC<TableStructureCardProps> = ({
       <CardContent className="p-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="font-medium">Texas Hold'em Structure</Badge>
+            <Badge variant="secondary" className="font-medium">Table Structure</Badge>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className="flex items-center gap-1">
