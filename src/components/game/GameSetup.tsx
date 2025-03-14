@@ -3,12 +3,13 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowRight, Plus, User, DollarSign } from 'lucide-react';
+import { ArrowRight, Plus, User, DollarSign, Copy, Share2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useGameContext } from '@/contexts/GameContext';
 import BlindControl from './BlindControl';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface Player {
   id: string;
@@ -18,13 +19,26 @@ interface Player {
 
 const GameSetup = () => {
   const navigate = useNavigate();
-  const { startGame } = useGameContext();
+  const { startGame, gameState, getShareUrl } = useGameContext();
   const [players, setPlayers] = useState<Player[]>([
     { id: '1', name: '', buyIn: 50 },
     { id: '2', name: '', buyIn: 50 },
   ]);
   const [smallBlind, setSmallBlind] = useState(1);
   const [bigBlind, setBigBlind] = useState(2);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const shareUrl = getShareUrl();
+
+  // Check URL for game ID
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gameId = params.get('gameId');
+    
+    if (gameId && gameState.players.length === 0) {
+      // We have a gameId but no loaded game, show a message
+      toast.info("Loading shared game...");
+    }
+  }, [gameState.players.length]);
 
   const addPlayer = () => {
     if (players.length >= 10) {
@@ -57,6 +71,13 @@ const GameSetup = () => {
     ));
   };
 
+  const copyShareLink = () => {
+    if (shareUrl) {
+      navigator.clipboard.writeText(shareUrl);
+      toast.success("Share link copied to clipboard!");
+    }
+  };
+
   const handleStartGame = () => {
     // Validate all players have names
     const emptyNames = players.some(player => !player.name.trim());
@@ -72,6 +93,10 @@ const GameSetup = () => {
       return;
     }
 
+    // Check URL for game ID
+    const params = new URLSearchParams(window.location.search);
+    const gameId = params.get('gameId');
+
     // Start the game
     startGame({
       players: players.map(p => ({
@@ -86,10 +111,13 @@ const GameSetup = () => {
         small: smallBlind,
         big: bigBlind
       },
-      startTime: new Date().toISOString()
+      currentRound: 1,
+      startTime: new Date().toISOString(),
+      gameId: gameId || undefined
     });
     
-    navigate('/game');
+    // Show share dialog after game starts
+    setShowShareDialog(true);
   };
 
   return (
@@ -194,6 +222,30 @@ const GameSetup = () => {
           </div>
         </div>
       </div>
+
+      {/* Share Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share this game</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="mb-4 text-muted-foreground">
+              Share this link with other players to join your game session:
+            </p>
+            <div className="flex items-center gap-2">
+              <Input 
+                value={shareUrl} 
+                readOnly 
+                className="flex-1"
+              />
+              <Button variant="outline" size="icon" onClick={copyShareLink}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -3,8 +3,9 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import PlayerCard from './PlayerCard';
-import { ArrowRight, RotateCw, PlusCircle, History, DollarSign } from 'lucide-react';
+import { ArrowRight, RotateCw, PlusCircle, History, DollarSign, Share2, Copy } from 'lucide-react';
 import { useGameContext } from '@/contexts/GameContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -12,8 +13,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 
 const BettingTracker = () => {
   const navigate = useNavigate();
-  const { gameState, nextRound, increaseBlindLevel, endGame } = useGameContext();
+  const { gameState, nextRound, increaseBlindLevel, endGame, getShareUrl } = useGameContext();
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const shareUrl = getShareUrl();
   
   // Navigate to home if no game in progress
   React.useEffect(() => {
@@ -65,6 +68,13 @@ const BettingTracker = () => {
     return gameState.players.reduce((sum, player) => sum + player.totalBet, 0);
   };
 
+  const copyShareLink = () => {
+    if (shareUrl) {
+      navigator.clipboard.writeText(shareUrl);
+      toast.success("Share link copied to clipboard!");
+    }
+  };
+
   return (
     <div className="w-full max-w-3xl mx-auto space-y-6 animate-fade-in pb-8">
       <div className="space-y-2">
@@ -82,6 +92,11 @@ const BettingTracker = () => {
               <p className="text-3xl font-bold">{formatCurrency(getTotalPot())}</p>
             </div>
             <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowShareDialog(true)}>
+                <Share2 className="h-4 w-4 mr-1" />
+                Share
+              </Button>
+              
               <Dialog>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm">
@@ -184,6 +199,30 @@ const BettingTracker = () => {
           </DialogContent>
         </Dialog>
       </div>
+      
+      {/* Share Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share this game</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="mb-4 text-muted-foreground">
+              Share this link with other players to join your game session:
+            </p>
+            <div className="flex items-center gap-2">
+              <Input 
+                value={shareUrl} 
+                readOnly 
+                className="flex-1"
+              />
+              <Button variant="outline" size="icon" onClick={copyShareLink}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

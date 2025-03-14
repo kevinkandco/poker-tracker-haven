@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 
 // Types
@@ -23,6 +23,7 @@ interface GameState {
   currentRound: number;
   startTime: string;
   endTime?: string;
+  gameId?: string;
 }
 
 interface GameContextType {
@@ -36,6 +37,7 @@ interface GameContextType {
   buyIn: (playerId: string) => void;
   fold: (playerId: string) => void;
   endGame: () => void;
+  getShareUrl: () => string;
 }
 
 // Create context
@@ -56,12 +58,75 @@ const initialGameState: GameState = {
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [gameState, setGameState] = useState<GameState>(initialGameState);
 
+  // Load game state from local storage on component mount
+  useEffect(() => {
+    const storedGame = localStorage.getItem('pokerGameState');
+    if (storedGame) {
+      try {
+        const parsedState = JSON.parse(storedGame);
+        setGameState(parsedState);
+      } catch (error) {
+        console.error('Failed to parse stored game state', error);
+      }
+    }
+    
+    // Check if there's a gameId in the URL
+    const params = new URLSearchParams(window.location.search);
+    const gameIdFromUrl = params.get('gameId');
+    
+    if (gameIdFromUrl) {
+      // Try to load the shared game from localStorage
+      const sharedGame = localStorage.getItem(`pokerGameState_${gameIdFromUrl}`);
+      if (sharedGame) {
+        try {
+          const parsedState = JSON.parse(sharedGame);
+          setGameState(parsedState);
+          toast.success("Joined shared game session!");
+        } catch (error) {
+          console.error('Failed to parse shared game state', error);
+          toast.error("Failed to join shared game");
+        }
+      }
+    }
+  }, []);
+
+  // Save game state to localStorage whenever it changes
+  useEffect(() => {
+    if (gameState.players.length > 0) {
+      localStorage.setItem('pokerGameState', JSON.stringify(gameState));
+      
+      // If we have a gameId, also save with that key
+      if (gameState.gameId) {
+        localStorage.setItem(`pokerGameState_${gameState.gameId}`, JSON.stringify(gameState));
+      }
+    }
+  }, [gameState]);
+
   // Start a new game
   const startGame = (initialState: GameState) => {
-    setGameState({
+    // Generate a unique gameId if not provided
+    const gameId = initialState.gameId || generateGameId();
+    
+    const newGameState = {
       ...initialState,
       currentRound: 1,
-    });
+      gameId
+    };
+    
+    setGameState(newGameState);
+  };
+
+  // Generate a unique game ID
+  const generateGameId = () => {
+    return Math.random().toString(36).substring(2, 10);
+  };
+
+  // Get shareable URL
+  const getShareUrl = () => {
+    if (!gameState.gameId) return '';
+    
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/?gameId=${gameState.gameId}`;
   };
 
   // Add a bet for a player
@@ -191,6 +256,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       ...initialGameState,
       endTime: new Date().toISOString(),
     });
+    
+    // Clear localStorage for this game
+    localStorage.removeItem('pokerGameState');
+    if (gameState.gameId) {
+      localStorage.removeItem(`pokerGameState_${gameState.gameId}`);
+    }
   };
 
   return (
@@ -206,6 +277,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         buyIn,
         fold,
         endGame,
+        getShareUrl,
       }}
     >
       {children}

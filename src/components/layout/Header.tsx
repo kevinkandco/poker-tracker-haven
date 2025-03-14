@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Home, Clock, History } from 'lucide-react';
+import { Clock, History } from 'lucide-react';
 
 const Header = () => {
   return (
@@ -14,13 +14,6 @@ const Header = () => {
         <nav className="hidden md:flex items-center space-x-1">
           <Link 
             to="/" 
-            className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-muted transition-all duration-200"
-          >
-            <Home size={20} />
-            <span className="sr-only">Home</span>
-          </Link>
-          <Link 
-            to="/game" 
             className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-muted transition-all duration-200"
           >
             <Clock size={20} />
