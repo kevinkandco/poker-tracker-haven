@@ -25,8 +25,8 @@ const GameSession = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-16">
-        <Container>
+      <main className="pt-20 pb-12">
+        <Container className="px-4 md:px-6">
           {gameInProgress ? <BettingTracker /> : <GameSetup />}
         </Container>
       </main>

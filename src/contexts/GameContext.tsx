@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 
@@ -24,6 +23,7 @@ interface GameState {
   startTime: string;
   endTime?: string;
   gameId?: string;
+  currentHand: number; // Track current hand number
 }
 
 interface GameContextType {
@@ -38,6 +38,7 @@ interface GameContextType {
   fold: (playerId: string) => void;
   endGame: () => void;
   getShareUrl: () => string;
+  resetHand: () => void; // New hand reset function
 }
 
 // Create context
@@ -52,6 +53,7 @@ const initialGameState: GameState = {
   },
   currentRound: 1,
   startTime: '',
+  currentHand: 1, // Start with hand #1
 };
 
 // Provider component
@@ -110,6 +112,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const newGameState = {
       ...initialState,
       currentRound: 1,
+      currentHand: 1, // Initialize hand counter
       gameId
     };
     
@@ -214,6 +217,24 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }));
   };
 
+  // Reset for a new hand
+  const resetHand = () => {
+    setGameState(prevState => ({
+      ...prevState,
+      currentRound: 1, // Reset to first round
+      currentHand: prevState.currentHand + 1, // Increment hand counter
+      players: prevState.players.map(player => ({
+        ...player,
+        bets: [], // Clear all bets for this hand
+        totalBet: 0, // Reset total bet
+        currentBet: undefined, // Clear current bet
+        folded: false, // Reset folded status
+      })),
+    }));
+    
+    toast.success(`Starting Hand #${gameState.currentHand + 1}`);
+  };
+
   // Increase the blind level
   const increaseBlindLevel = () => {
     setGameState(prevState => ({
@@ -278,6 +299,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         fold,
         endGame,
         getShareUrl,
+        resetHand,
       }}
     >
       {children}

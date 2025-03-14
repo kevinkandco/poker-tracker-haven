@@ -84,20 +84,20 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ playerId, playerIndex, isActive
         isActive ? "ring-2 ring-primary shadow-md" : "",
         player.folded ? "opacity-60" : ""
       )}>
-        <CardContent className="p-4">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-medium truncate">{player.name}</h3>
+        <CardContent className="p-5">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-medium truncate text-base">{player.name}</h3>
             {player.folded && <Badge variant="outline">Folded</Badge>}
           </div>
           
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex justify-between items-center mb-5">
             <div>
-              <p className="text-xs text-muted-foreground">Stack</p>
+              <p className="text-xs text-muted-foreground mb-1">Stack</p>
               <p className="text-xl font-semibold">{formatCurrency(player.currentStack)}</p>
             </div>
             
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">Total Bet</p>
+              <p className="text-xs text-muted-foreground mb-1">Total Bet</p>
               <p className="text-xl font-semibold">{formatCurrency(totalBet)}</p>
             </div>
           </div>
@@ -108,7 +108,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ playerId, playerIndex, isActive
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="space-y-3"
+                className="space-y-4"
               >
                 <div className="flex gap-2">
                   {suggestedBets.map((amount, i) => (
@@ -180,7 +180,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ playerId, playerIndex, isActive
         </CardContent>
         
         {!player.folded && isActive && (
-          <CardFooter className="flex p-2 pt-0 gap-2">
+          <CardFooter className="flex p-3 pt-0 gap-2">
             <Button 
               variant="default" 
               className="flex-1 h-9 button-hover"
@@ -200,7 +200,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ playerId, playerIndex, isActive
         )}
         
         {!isActive && !player.folded && (
-          <CardFooter className="p-2 pt-0">
+          <CardFooter className="p-3 pt-0">
             <Button 
               variant="outline" 
               size="sm" 

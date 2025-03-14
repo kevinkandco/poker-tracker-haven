@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import PlayerCard from './PlayerCard';
-import { ArrowRight, RotateCw, PlusCircle, History, DollarSign, Share2, Copy } from 'lucide-react';
+import { ArrowRight, RotateCw, PlusCircle, History, DollarSign, Share2, Copy, RefreshCw } from 'lucide-react';
 import { useGameContext } from '@/contexts/GameContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 
 const BettingTracker = () => {
   const navigate = useNavigate();
-  const { gameState, nextRound, increaseBlindLevel, endGame, getShareUrl } = useGameContext();
+  const { gameState, nextRound, increaseBlindLevel, endGame, getShareUrl, resetHand } = useGameContext();
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const shareUrl = getShareUrl();
@@ -52,6 +52,11 @@ const BettingTracker = () => {
     // Reset to first player for new round
     setActivePlayerIndex(0);
   };
+
+  const handleNewHand = () => {
+    resetHand();
+    setActivePlayerIndex(0);
+  };
   
   const handleIncreaseBlindLevel = () => {
     increaseBlindLevel();
@@ -76,22 +81,29 @@ const BettingTracker = () => {
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-6 animate-fade-in pb-8">
-      <div className="space-y-2">
+    <div className="w-full max-w-3xl mx-auto space-y-8 animate-fade-in pb-12">
+      <div className="space-y-3">
         <h2 className="text-2xl font-semibold tracking-tight">Poker Tracker</h2>
-        <p className="text-muted-foreground">
-          Round {gameState.currentRound} • Blinds: {formatCurrency(gameState.blinds.small)}/{formatCurrency(gameState.blinds.big)}
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="font-normal">Hand #{gameState.currentHand}</Badge>
+            <Badge variant="outline" className="font-normal">Round {gameState.currentRound}</Badge>
+          </div>
+          <div className="hidden sm:block">•</div>
+          <div>
+            Blinds: {formatCurrency(gameState.blinds.small)}/{formatCurrency(gameState.blinds.big)}
+          </div>
+        </div>
       </div>
       
       <Card className="bg-card border border-border shadow-sm overflow-hidden">
-        <CardContent className="p-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-sm text-muted-foreground">Current Pot</p>
+        <CardContent className="p-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="w-full sm:w-auto">
+              <p className="text-sm text-muted-foreground mb-1">Current Pot</p>
               <p className="text-3xl font-bold">{formatCurrency(getTotalPot())}</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-start sm:justify-end">
               <Button variant="outline" size="sm" onClick={() => setShowShareDialog(true)}>
                 <Share2 className="h-4 w-4 mr-1" />
                 Share
@@ -144,7 +156,7 @@ const BettingTracker = () => {
         </CardContent>
       </Card>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         {gameState.players.map((player, index) => (
           <PlayerCard 
             key={player.id} 
@@ -155,49 +167,62 @@ const BettingTracker = () => {
         ))}
       </div>
       
-      <div className="flex gap-3 justify-center pt-4">
-        <Button 
-          variant="outline" 
-          className="button-hover"
-          onClick={handleNextPlayer}
-        >
-          Next Player
-          <ArrowRight className="ml-1.5 h-4 w-4" />
-        </Button>
+      <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+        <div className="flex gap-3 justify-center">
+          <Button 
+            variant="outline" 
+            className="button-hover flex-1 sm:flex-none"
+            onClick={handleNextPlayer}
+          >
+            Next Player
+            <ArrowRight className="ml-1.5 h-4 w-4" />
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            className="button-hover flex-1 sm:flex-none"
+            onClick={handleNextRound}
+          >
+            Next Round
+            <RotateCw className="ml-1.5 h-4 w-4" />
+          </Button>
+        </div>
         
-        <Button 
-          variant="default" 
-          className="button-hover"
-          onClick={handleNextRound}
-        >
-          Next Round
-          <RotateCw className="ml-1.5 h-4 w-4" />
-        </Button>
-        
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-destructive/10">
-              <DollarSign className="h-4 w-4 mr-1" />
-              End Game
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>End the game?</DialogTitle>
-            </DialogHeader>
-            <p className="py-4">
-              Are you sure you want to end this game? This action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-3">
-              <DialogTrigger asChild>
-                <Button variant="outline">Cancel</Button>
-              </DialogTrigger>
-              <Button variant="destructive" onClick={handleEndGame}>
+        <div className="flex gap-3 justify-center">
+          <Button 
+            variant="default" 
+            className="button-hover flex-1 sm:flex-none"
+            onClick={handleNewHand}
+          >
+            New Hand
+            <RefreshCw className="ml-1.5 h-4 w-4" />
+          </Button>
+          
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-destructive/10 flex-1 sm:flex-none">
+                <DollarSign className="h-4 w-4 mr-1" />
                 End Game
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>End the game?</DialogTitle>
+              </DialogHeader>
+              <p className="py-4">
+                Are you sure you want to end this game? This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3">
+                <DialogTrigger asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogTrigger>
+                <Button variant="destructive" onClick={handleEndGame}>
+                  End Game
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
       
       {/* Share Dialog */}
