@@ -112,6 +112,7 @@ const GameSetup = () => {
         big: bigBlind
       },
       currentRound: 1,
+      currentHand: 1, // Add the missing currentHand property
       startTime: new Date().toISOString(),
       gameId: gameId || undefined
     });
