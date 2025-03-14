@@ -3,13 +3,21 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowRight, Plus, User, DollarSign, Copy, Share2 } from 'lucide-react';
+import { ArrowRight, Plus, User, DollarSign, Copy, Share2, Switch } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
 import { useGameContext } from '@/contexts/GameContext';
 import BlindControl from './BlindControl';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger,
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
+import JoinGameForm from './JoinGameForm';
 
 interface Player {
   id: string;
@@ -18,8 +26,7 @@ interface Player {
 }
 
 const GameSetup = () => {
-  const navigate = useNavigate();
-  const { startGame, gameState, getShareUrl } = useGameContext();
+  const { startGame, gameState, getShareUrl, toggleAnonymousJoin } = useGameContext();
   const [players, setPlayers] = useState<Player[]>([
     { id: '1', name: '', buyIn: 50 },
     { id: '2', name: '', buyIn: 50 },
@@ -27,16 +34,18 @@ const GameSetup = () => {
   const [smallBlind, setSmallBlind] = useState(1);
   const [bigBlind, setBigBlind] = useState(2);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [allowAnonymousJoin, setAllowAnonymousJoin] = useState(false);
   const shareUrl = getShareUrl();
 
-  // Check URL for game ID
+  // Check URL for invite code or game ID
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const gameId = params.get('gameId');
+    const inviteCode = params.get('invite');
     
-    if (gameId && gameState.players.length === 0) {
-      // We have a gameId but no loaded game, show a message
-      toast.info("Loading shared game...");
+    if ((gameId || inviteCode) && gameState.players.length === 0) {
+      // We have a gameId or inviteCode but no loaded game, show a message
+      toast.info(inviteCode ? "Joining game..." : "Loading shared game...");
     }
   }, [gameState.players.length]);
 
@@ -78,6 +87,10 @@ const GameSetup = () => {
     }
   };
 
+  const handleAnonymousToggle = () => {
+    setAllowAnonymousJoin(!allowAnonymousJoin);
+  };
+
   const handleStartGame = () => {
     // Validate all players have names
     const emptyNames = players.some(player => !player.name.trim());
@@ -112,10 +125,16 @@ const GameSetup = () => {
         big: bigBlind
       },
       currentRound: 1,
-      currentHand: 1, // Add the missing currentHand property
+      currentHand: 1,
       startTime: new Date().toISOString(),
-      gameId: gameId || undefined
+      gameId: gameId || undefined,
+      allowAnonymousJoin: allowAnonymousJoin
     });
+    
+    // Call toggleAnonymousJoin if we want to allow anonymous joining
+    if (allowAnonymousJoin) {
+      toggleAnonymousJoin();
+    }
     
     // Show share dialog after game starts
     setShowShareDialog(true);
@@ -212,6 +231,19 @@ const GameSetup = () => {
             onBigBlindChange={setBigBlind}
           />
 
+          <div className="flex items-center space-x-2 py-2">
+            <Label htmlFor="allow-anonymous" className="cursor-pointer flex items-center space-x-2">
+              <input 
+                id="allow-anonymous"
+                type="checkbox"
+                checked={allowAnonymousJoin}
+                onChange={handleAnonymousToggle}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <span>Allow anonymous players to join via link</span>
+            </Label>
+          </div>
+
           <div className="pt-4">
             <Button 
               className="w-full button-hover" 
@@ -229,6 +261,11 @@ const GameSetup = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Share this game</DialogTitle>
+            {allowAnonymousJoin && (
+              <DialogDescription>
+                You've enabled anonymous joining. Anyone with this link can join your game!
+              </DialogDescription>
+            )}
           </DialogHeader>
           <div className="py-4">
             <p className="mb-4 text-muted-foreground">

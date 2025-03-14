@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 
@@ -11,6 +12,7 @@ interface Player {
   totalBet: number;
   currentBet?: number;
   folded?: boolean;
+  isAnonymous?: boolean;
 }
 
 interface GameState {
@@ -25,6 +27,8 @@ interface GameState {
   gameId?: string;
   currentHand: number; // Track current hand number
   winner?: string; // Track winner ID
+  inviteCode?: string; // For sharing and joining
+  allowAnonymousJoin?: boolean;
 }
 
 interface GameContextType {
@@ -40,7 +44,9 @@ interface GameContextType {
   endGame: () => void;
   getShareUrl: () => string;
   resetHand: () => void;
-  markWinner: (playerId: string) => void; // New function to mark the winner
+  markWinner: (playerId: string) => void;
+  addAnonymousPlayer: (name: string, buyIn: number) => void;
+  toggleAnonymousJoin: () => void;
 }
 
 // Create context
@@ -56,6 +62,7 @@ const initialGameState: GameState = {
   currentRound: 1,
   startTime: '',
   currentHand: 1, // Start with hand #1
+  allowAnonymousJoin: false,
 };
 
 // Provider component
@@ -77,6 +84,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Check if there's a gameId in the URL
     const params = new URLSearchParams(window.location.search);
     const gameIdFromUrl = params.get('gameId');
+    const inviteCodeFromUrl = params.get('invite');
     
     if (gameIdFromUrl) {
       // Try to load the shared game from localStorage
@@ -91,6 +99,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           toast.error("Failed to join shared game");
         }
       }
+    }
+    
+    // If we have an invite code, show the join dialog
+    if (inviteCodeFromUrl) {
+      // We'll handle this in the GameSession component
+      console.log("Found invite code:", inviteCodeFromUrl);
     }
   }, []);
 
@@ -110,12 +124,15 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const startGame = (initialState: GameState) => {
     // Generate a unique gameId if not provided
     const gameId = initialState.gameId || generateGameId();
+    const inviteCode = initialState.inviteCode || generateInviteCode();
     
     const newGameState = {
       ...initialState,
       currentRound: 1,
       currentHand: 1, // Initialize hand counter
-      gameId
+      gameId,
+      inviteCode,
+      allowAnonymousJoin: initialState.allowAnonymousJoin || false
     };
     
     setGameState(newGameState);
@@ -125,13 +142,81 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const generateGameId = () => {
     return Math.random().toString(36).substring(2, 10);
   };
+  
+  // Generate an invite code (more user-friendly than gameId)
+  const generateInviteCode = () => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  };
 
   // Get shareable URL
   const getShareUrl = () => {
-    if (!gameState.gameId) return '';
+    if (!gameState.gameId || !gameState.inviteCode) return '';
     
     const baseUrl = window.location.origin;
+    
+    // Use inviteCode for anonymous sharing
+    if (gameState.allowAnonymousJoin) {
+      return `${baseUrl}/?invite=${gameState.inviteCode}`;
+    }
+    
+    // Use gameId for normal sharing
     return `${baseUrl}/?gameId=${gameState.gameId}`;
+  };
+
+  // Toggle anonymous join setting
+  const toggleAnonymousJoin = () => {
+    setGameState(prevState => ({
+      ...prevState,
+      allowAnonymousJoin: !prevState.allowAnonymousJoin
+    }));
+  };
+  
+  // Add anonymous player to the game
+  const addAnonymousPlayer = (name: string, buyIn: number) => {
+    // Validate
+    if (!name.trim()) {
+      toast.error("Please enter a name");
+      return;
+    }
+    
+    if (buyIn <= 0) {
+      toast.error("Buy-in amount must be greater than 0");
+      return;
+    }
+    
+    // Check if the game allows anonymous joining
+    if (!gameState.allowAnonymousJoin) {
+      toast.error("This game doesn't allow anonymous joining");
+      return;
+    }
+    
+    // Check for duplicate names
+    const isDuplicateName = gameState.players.some(
+      player => player.name.toLowerCase() === name.toLowerCase()
+    );
+    
+    if (isDuplicateName) {
+      toast.error("This name is already taken");
+      return;
+    }
+    
+    setGameState(prevState => ({
+      ...prevState,
+      players: [
+        ...prevState.players,
+        {
+          id: `anon-${Date.now()}`,
+          name,
+          buyIn,
+          currentStack: buyIn,
+          bets: [],
+          totalBet: 0,
+          isAnonymous: true
+        }
+      ]
+    }));
+    
+    toast.success(`${name} joined the game`);
   };
 
   // Add a bet for a player
@@ -353,6 +438,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         getShareUrl,
         resetHand,
         markWinner,
+        addAnonymousPlayer,
+        toggleAnonymousJoin,
       }}
     >
       {children}
