@@ -16,6 +16,7 @@ interface GameControlButtonsProps {
   onNextRound: () => void;
   onNewHand: () => void;
   onEndGame: () => void;
+  className?: string;
 }
 
 const GameControlButtons: React.FC<GameControlButtonsProps> = ({
@@ -23,10 +24,11 @@ const GameControlButtons: React.FC<GameControlButtonsProps> = ({
   onNextPlayer,
   onNextRound,
   onNewHand,
-  onEndGame
+  onEndGame,
+  className = ""
 }) => {
   return (
-    <div className="flex flex-col sm:flex-row gap-4 justify-center pt-6">
+    <div className={`flex flex-col sm:flex-row gap-4 justify-center ${className}`}>
       <div className="flex gap-3 justify-center">
         <Button 
           variant="outline" 

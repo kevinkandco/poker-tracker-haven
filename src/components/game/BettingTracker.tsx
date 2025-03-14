@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useGameContext } from '@/contexts/GameContext';
 import { useNavigate } from 'react-router-dom';
@@ -216,6 +215,9 @@ const BettingTracker = () => {
         currentRound={gameState.currentRound}
         activePlayers={activePlayers}
         gameState={gameState}
+        onNextPlayer={handleNextPlayer}
+        onNextRound={handleNextRound}
+        onNewHand={handleNewHand}
       />
 
       {/* Next Action Cards */}
@@ -243,14 +245,16 @@ const BettingTracker = () => {
         ))}
       </div>
       
-      {/* Game Control Buttons */}
-      <GameControlButtons 
-        gameState={gameState}
-        onNextPlayer={handleNextPlayer}
-        onNextRound={handleNextRound}
-        onNewHand={handleNewHand}
-        onEndGame={handleEndGame}
-      />
+      {/* End Game Button - Keep this at the bottom */}
+      <div className="flex justify-center mt-4">
+        <Button 
+          variant="outline" 
+          className="text-destructive border-destructive/20 hover:bg-destructive/10"
+          onClick={() => endGame()}
+        >
+          End Game
+        </Button>
+      </div>
       
       {/* Share Dialog */}
       <ShareDialog 
