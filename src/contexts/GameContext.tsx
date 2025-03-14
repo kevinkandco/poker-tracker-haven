@@ -1,6 +1,7 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { v4 as uuidv4 } from 'uuid';
 
 // Types
 interface Player {
@@ -33,7 +34,7 @@ interface GameState {
 
 interface GameContextType {
   gameState: GameState;
-  startGame: (initialState: GameState) => void;
+  startGame: (initialState: GameState) => Promise<void>;
   addBet: (playerId: string, amount: number) => void;
   updateCurrentBet: (playerId: string, amount: number) => void;
   submitBet: (playerId: string) => void;
@@ -41,12 +42,13 @@ interface GameContextType {
   increaseBlindLevel: () => void;
   buyIn: (playerId: string, amount?: number) => void;
   fold: (playerId: string) => void;
-  endGame: () => void;
+  endGame: () => Promise<void>;
   getShareUrl: () => string;
   resetHand: () => void;
   markWinner: (playerId: string) => void;
-  addAnonymousPlayer: (name: string, buyIn: number) => void;
+  addAnonymousPlayer: (name: string, buyIn: number) => Promise<void>;
   toggleAnonymousJoin: () => void;
+  loadGameByInviteCode: (inviteCode: string) => Promise<boolean>;
 }
 
 // Create context
@@ -68,99 +70,254 @@ const initialGameState: GameState = {
 // Provider component
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [gameState, setGameState] = useState<GameState>(initialGameState);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Load game state from local storage on component mount
+  // Load game state from URL parameters on component mount
   useEffect(() => {
-    const storedGame = localStorage.getItem('pokerGameState');
-    if (storedGame) {
-      try {
-        const parsedState = JSON.parse(storedGame);
-        setGameState(parsedState);
-      } catch (error) {
-        console.error('Failed to parse stored game state', error);
-      }
-    }
-    
-    // Check if there's a gameId in the URL
-    const params = new URLSearchParams(window.location.search);
-    const gameIdFromUrl = params.get('gameId');
-    const inviteCodeFromUrl = params.get('invite');
-    
-    if (gameIdFromUrl) {
-      // Try to load the shared game from localStorage
-      const sharedGame = localStorage.getItem(`pokerGameState_${gameIdFromUrl}`);
-      if (sharedGame) {
+    const initializeFromUrl = async () => {
+      // Check if there's a gameId or invite code in the URL
+      const params = new URLSearchParams(window.location.search);
+      const gameIdFromUrl = params.get('gameId');
+      const inviteCodeFromUrl = params.get('invite');
+      
+      let foundGame = false;
+      
+      if (inviteCodeFromUrl) {
+        foundGame = await loadGameByInviteCode(inviteCodeFromUrl);
+        if (foundGame) {
+          toast.success("Joined game via invite link!");
+        }
+      } else if (gameIdFromUrl) {
+        // Try to load the game from Supabase
         try {
-          const parsedState = JSON.parse(sharedGame);
-          setGameState(parsedState);
-          toast.success("Joined shared game session!");
+          const { data: gameData, error: gameError } = await supabase
+            .from('games')
+            .select('*')
+            .eq('id', gameIdFromUrl)
+            .single();
+          
+          if (gameError) throw gameError;
+          
+          if (gameData) {
+            const { data: playersData, error: playersError } = await supabase
+              .from('players')
+              .select('*')
+              .eq('game_id', gameData.id);
+            
+            if (playersError) throw playersError;
+            
+            if (playersData && playersData.length > 0) {
+              // Transform database data to our game state format
+              const players = playersData.map(player => ({
+                id: player.id,
+                name: player.name,
+                buyIn: player.buy_in,
+                currentStack: player.current_stack,
+                bets: [],
+                totalBet: 0,
+                isAnonymous: player.is_anonymous,
+              }));
+              
+              setGameState({
+                players,
+                blinds: {
+                  small: gameData.small_blind,
+                  big: gameData.big_blind,
+                },
+                currentRound: 1,
+                startTime: gameData.created_at,
+                gameId: gameData.id,
+                currentHand: 1,
+                inviteCode: gameData.invite_code,
+                allowAnonymousJoin: gameData.allow_anonymous_join,
+              });
+              
+              foundGame = true;
+              toast.success("Loaded game from shared link!");
+            }
+          }
         } catch (error) {
-          console.error('Failed to parse shared game state', error);
-          toast.error("Failed to join shared game");
+          console.error("Error loading game:", error);
+          toast.error("Failed to load game from shared link");
         }
       }
+      
+      // If no game found from URL, try local storage
+      if (!foundGame) {
+        const storedGame = localStorage.getItem('pokerGameState');
+        if (storedGame) {
+          try {
+            const parsedState = JSON.parse(storedGame);
+            setGameState(parsedState);
+          } catch (error) {
+            console.error('Failed to parse stored game state', error);
+          }
+        }
+      }
+      
+      setIsInitialized(true);
+    };
+    
+    initializeFromUrl();
+  }, []);
+
+  // Load a game by invite code
+  const loadGameByInviteCode = async (inviteCode: string): Promise<boolean> => {
+    try {
+      const { data: gameData, error: gameError } = await supabase
+        .from('games')
+        .select('*')
+        .eq('invite_code', inviteCode)
+        .eq('active', true)
+        .single();
+      
+      if (gameError) throw gameError;
+      
+      if (gameData) {
+        const { data: playersData, error: playersError } = await supabase
+          .from('players')
+          .select('*')
+          .eq('game_id', gameData.id);
+        
+        if (playersError) throw playersError;
+        
+        // Transform database data to our game state format
+        const players = playersData ? playersData.map(player => ({
+          id: player.id,
+          name: player.name,
+          buyIn: player.buy_in,
+          currentStack: player.current_stack,
+          bets: [],
+          totalBet: 0,
+          isAnonymous: player.is_anonymous,
+        })) : [];
+        
+        setGameState({
+          players,
+          blinds: {
+            small: gameData.small_blind,
+            big: gameData.big_blind,
+          },
+          currentRound: 1,
+          startTime: gameData.created_at,
+          gameId: gameData.id,
+          currentHand: 1,
+          inviteCode: gameData.invite_code,
+          allowAnonymousJoin: gameData.allow_anonymous_join,
+        });
+        
+        return true;
+      }
+    } catch (error) {
+      console.error("Error loading game by invite code:", error);
+      toast.error("Failed to load game with this invite code");
     }
     
-    // If we have an invite code, show the join dialog
-    if (inviteCodeFromUrl) {
-      // We'll handle this in the GameSession component
-      console.log("Found invite code:", inviteCodeFromUrl);
-    }
-  }, []);
+    return false;
+  };
 
   // Save game state to localStorage whenever it changes
   useEffect(() => {
-    if (gameState.players.length > 0) {
+    if (isInitialized && gameState.players.length > 0) {
       localStorage.setItem('pokerGameState', JSON.stringify(gameState));
-      
-      // If we have a gameId, also save with that key
-      if (gameState.gameId) {
-        localStorage.setItem(`pokerGameState_${gameState.gameId}`, JSON.stringify(gameState));
-      }
     }
-  }, [gameState]);
+  }, [gameState, isInitialized]);
 
   // Start a new game
-  const startGame = (initialState: GameState) => {
-    // Generate a unique gameId if not provided
-    const gameId = initialState.gameId || generateGameId();
+  const startGame = async (initialState: GameState) => {
+    // Generate a unique invite code if not provided
     const inviteCode = initialState.inviteCode || generateInviteCode();
+    const gameId = initialState.gameId || uuidv4();
     
-    const newGameState = {
-      ...initialState,
-      currentRound: 1,
-      currentHand: 1, // Initialize hand counter
-      gameId,
-      inviteCode,
-      allowAnonymousJoin: initialState.allowAnonymousJoin || false
-    };
-    
-    setGameState(newGameState);
+    // Create the game in Supabase
+    try {
+      const { data: gameData, error: gameError } = await supabase
+        .from('games')
+        .insert([
+          {
+            id: gameId,
+            invite_code: inviteCode,
+            small_blind: initialState.blinds.small,
+            big_blind: initialState.blinds.big,
+            allow_anonymous_join: initialState.allowAnonymousJoin || false
+          }
+        ])
+        .select();
+      
+      if (gameError) throw gameError;
+      
+      // Add all players to the game
+      if (gameData && gameData.length > 0) {
+        const playersToInsert = initialState.players.map(player => ({
+          game_id: gameId,
+          name: player.name,
+          buy_in: player.buyIn,
+          current_stack: player.buyIn,
+          is_anonymous: player.isAnonymous || false
+        }));
+        
+        const { data: playersData, error: playersError } = await supabase
+          .from('players')
+          .insert(playersToInsert)
+          .select();
+        
+        if (playersError) throw playersError;
+        
+        // If players were successfully added, update the game state with new player IDs
+        if (playersData && playersData.length > 0) {
+          const updatedPlayers = playersData.map(player => ({
+            id: player.id,
+            name: player.name,
+            buyIn: player.buy_in,
+            currentStack: player.current_stack,
+            bets: [],
+            totalBet: 0,
+            isAnonymous: player.is_anonymous
+          }));
+          
+          const newGameState = {
+            ...initialState,
+            players: updatedPlayers,
+            currentRound: 1,
+            currentHand: 1,
+            gameId,
+            inviteCode,
+            allowAnonymousJoin: initialState.allowAnonymousJoin || false
+          };
+          
+          setGameState(newGameState);
+          toast.success("Game created successfully!");
+        }
+      }
+    } catch (error) {
+      console.error("Error creating game:", error);
+      toast.error("Failed to create game");
+      
+      // Fallback to local state only if Supabase fails
+      const newGameState = {
+        ...initialState,
+        currentRound: 1,
+        currentHand: 1,
+        gameId,
+        inviteCode,
+        allowAnonymousJoin: initialState.allowAnonymousJoin || false
+      };
+      
+      setGameState(newGameState);
+    }
   };
 
-  // Generate a unique game ID
-  const generateGameId = () => {
-    return Math.random().toString(36).substring(2, 10);
-  };
-  
-  // Generate an invite code (more user-friendly than gameId)
+  // Generate an invite code
   const generateInviteCode = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   };
 
   // Get shareable URL
   const getShareUrl = () => {
-    if (!gameState.gameId || !gameState.inviteCode) return '';
+    if (!gameState.inviteCode) return '';
     
     const baseUrl = window.location.origin;
-    
-    // Use inviteCode for anonymous sharing
-    if (gameState.allowAnonymousJoin) {
-      return `${baseUrl}/?invite=${gameState.inviteCode}`;
-    }
-    
-    // Use gameId for normal sharing
-    return `${baseUrl}/?gameId=${gameState.gameId}`;
+    return `${baseUrl}/?invite=${gameState.inviteCode}`;
   };
 
   // Toggle anonymous join setting
@@ -169,10 +326,25 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       ...prevState,
       allowAnonymousJoin: !prevState.allowAnonymousJoin
     }));
+    
+    // Update in Supabase if we have a gameId
+    if (gameState.gameId) {
+      supabase
+        .from('games')
+        .update({
+          allow_anonymous_join: !gameState.allowAnonymousJoin
+        })
+        .eq('id', gameState.gameId)
+        .then(({ error }) => {
+          if (error) {
+            console.error("Error updating anonymous join setting:", error);
+          }
+        });
+    }
   };
   
   // Add anonymous player to the game
-  const addAnonymousPlayer = (name: string, buyIn: number) => {
+  const addAnonymousPlayer = async (name: string, buyIn: number) => {
     // Validate
     if (!name.trim()) {
       toast.error("Please enter a name");
@@ -200,23 +372,65 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
     
-    setGameState(prevState => ({
-      ...prevState,
-      players: [
-        ...prevState.players,
-        {
-          id: `anon-${Date.now()}`,
-          name,
-          buyIn,
-          currentStack: buyIn,
-          bets: [],
-          totalBet: 0,
-          isAnonymous: true
+    // Add the player to Supabase if we have a gameId
+    if (gameState.gameId) {
+      try {
+        const { data, error } = await supabase
+          .from('players')
+          .insert([
+            {
+              game_id: gameState.gameId,
+              name,
+              buy_in: buyIn,
+              current_stack: buyIn,
+              is_anonymous: true
+            }
+          ])
+          .select();
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          const newPlayer = {
+            id: data[0].id,
+            name,
+            buyIn,
+            currentStack: buyIn,
+            bets: [],
+            totalBet: 0,
+            isAnonymous: true
+          };
+          
+          setGameState(prevState => ({
+            ...prevState,
+            players: [...prevState.players, newPlayer]
+          }));
+          
+          toast.success(`${name} joined the game`);
         }
-      ]
-    }));
-    
-    toast.success(`${name} joined the game`);
+      } catch (error) {
+        console.error("Error adding anonymous player:", error);
+        toast.error("Failed to join the game");
+      }
+    } else {
+      // Fallback to local state only
+      const newPlayer = {
+        id: `anon-${Date.now()}`,
+        name,
+        buyIn,
+        currentStack: buyIn,
+        bets: [],
+        totalBet: 0,
+        isAnonymous: true
+      };
+      
+      setGameState(prevState => ({
+        ...prevState,
+        players: [...prevState.players, newPlayer]
+      }));
+      
+      toast.success(`${name} joined the game`);
+    }
   };
 
   // Add a bet for a player
@@ -409,7 +623,26 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // End the current game
-  const endGame = () => {
+  const endGame = async () => {
+    // If we have a gameId, mark the game as inactive in Supabase
+    if (gameState.gameId) {
+      try {
+        const { error } = await supabase
+          .from('games')
+          .update({
+            active: false
+          })
+          .eq('id', gameState.gameId);
+        
+        if (error) throw error;
+        
+        toast.success("Game ended successfully");
+      } catch (error) {
+        console.error("Error ending game:", error);
+        toast.error("Failed to end game");
+      }
+    }
+    
     setGameState({
       ...initialGameState,
       endTime: new Date().toISOString(),
@@ -417,9 +650,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     // Clear localStorage for this game
     localStorage.removeItem('pokerGameState');
-    if (gameState.gameId) {
-      localStorage.removeItem(`pokerGameState_${gameState.gameId}`);
-    }
   };
 
   return (
@@ -440,6 +670,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         markWinner,
         addAnonymousPlayer,
         toggleAnonymousJoin,
+        loadGameByInviteCode,
       }}
     >
       {children}

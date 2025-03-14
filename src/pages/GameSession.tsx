@@ -8,33 +8,56 @@ import { useGameContext } from '@/contexts/GameContext';
 import { useLocation } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import JoinGameForm from '@/components/game/JoinGameForm';
+import { toast } from 'sonner';
 
 const GameSession = () => {
-  const { gameState } = useGameContext();
+  const { gameState, loadGameByInviteCode } = useGameContext();
   const gameInProgress = gameState.players.length > 0;
   const location = useLocation();
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Check for gameId in URL
+  // Check for invite code in URL
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const gameId = params.get('gameId');
-    const inviteFromUrl = params.get('invite');
+    const loadGame = async () => {
+      setIsLoading(true);
+      const params = new URLSearchParams(location.search);
+      const inviteFromUrl = params.get('invite');
+      
+      if (inviteFromUrl && !gameInProgress) {
+        console.log(`Checking invite code: ${inviteFromUrl}`);
+        const gameExists = await loadGameByInviteCode(inviteFromUrl);
+        
+        if (gameExists && gameState.allowAnonymousJoin) {
+          setInviteCode(inviteFromUrl);
+          setShowJoinDialog(true);
+        } else if (!gameExists) {
+          toast.error("Invalid or expired invite code");
+        } else if (!gameState.allowAnonymousJoin) {
+          toast.error("This game doesn't allow anonymous joining");
+        }
+      }
+      
+      setIsLoading(false);
+    };
     
-    if (gameId) {
-      console.log(`Joining shared game: ${gameId}`);
-    }
-    
-    if (inviteFromUrl && gameState.allowAnonymousJoin) {
-      setInviteCode(inviteFromUrl);
-      setShowJoinDialog(true);
-    }
-  }, [location, gameState.allowAnonymousJoin]);
+    loadGame();
+  }, [location, gameState.allowAnonymousJoin, gameInProgress, loadGameByInviteCode]);
 
   const handleJoinSuccess = () => {
     setShowJoinDialog(false);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse text-center">
+          <p className="text-muted-foreground">Loading game...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

@@ -16,8 +16,9 @@ const JoinGameForm: React.FC<JoinGameFormProps> = ({ inviteCode, onJoinSuccess }
   const [playerName, setPlayerName] = useState('');
   const [buyInAmount, setBuyInAmount] = useState(50);
   const { addAnonymousPlayer, gameState } = useGameContext();
+  const [isJoining, setIsJoining] = useState(false);
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
     if (!playerName.trim()) {
       toast.error("Please enter your name");
       return;
@@ -34,10 +35,18 @@ const JoinGameForm: React.FC<JoinGameFormProps> = ({ inviteCode, onJoinSuccess }
       return;
     }
 
-    addAnonymousPlayer(playerName, buyInAmount);
-    
-    if (onJoinSuccess) {
-      onJoinSuccess();
+    setIsJoining(true);
+    try {
+      await addAnonymousPlayer(playerName, buyInAmount);
+      
+      if (onJoinSuccess) {
+        onJoinSuccess();
+      }
+    } catch (error) {
+      console.error("Error joining game:", error);
+      toast.error("Failed to join the game");
+    } finally {
+      setIsJoining(false);
     }
   };
 
@@ -72,8 +81,12 @@ const JoinGameForm: React.FC<JoinGameFormProps> = ({ inviteCode, onJoinSuccess }
         </div>
       </div>
 
-      <Button onClick={handleJoin} className="w-full">
-        Join Game
+      <Button 
+        onClick={handleJoin} 
+        className="w-full"
+        disabled={isJoining}
+      >
+        {isJoining ? "Joining..." : "Join Game"}
       </Button>
     </div>
   );

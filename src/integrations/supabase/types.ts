@@ -9,7 +9,74 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      games: {
+        Row: {
+          active: boolean
+          allow_anonymous_join: boolean
+          big_blind: number
+          created_at: string
+          id: string
+          invite_code: string
+          small_blind: number
+        }
+        Insert: {
+          active?: boolean
+          allow_anonymous_join?: boolean
+          big_blind: number
+          created_at?: string
+          id?: string
+          invite_code: string
+          small_blind: number
+        }
+        Update: {
+          active?: boolean
+          allow_anonymous_join?: boolean
+          big_blind?: number
+          created_at?: string
+          id?: string
+          invite_code?: string
+          small_blind?: number
+        }
+        Relationships: []
+      }
+      players: {
+        Row: {
+          buy_in: number
+          created_at: string
+          current_stack: number
+          game_id: string
+          id: string
+          is_anonymous: boolean
+          name: string
+        }
+        Insert: {
+          buy_in: number
+          created_at?: string
+          current_stack: number
+          game_id: string
+          id?: string
+          is_anonymous?: boolean
+          name: string
+        }
+        Update: {
+          buy_in?: number
+          created_at?: string
+          current_stack?: number
+          game_id?: string
+          id?: string
+          is_anonymous?: boolean
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "players_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
