@@ -4,7 +4,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, MinusCircle, RotateCw, Trophy, Coins, UserRound } from 'lucide-react';
+import { PlusCircle, MinusCircle, Trophy, Coins, UserRound } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useGameContext } from '@/contexts/GameContext';
@@ -16,6 +16,8 @@ interface PlayerCardProps {
   isActive?: boolean;
   isWinner?: boolean;
   isDealer?: boolean;
+  onBetComplete?: () => void;
+  autoAdvance?: boolean;
 }
 
 const PlayerCard: React.FC<PlayerCardProps> = ({ 
@@ -23,7 +25,9 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   playerIndex, 
   isActive = false,
   isWinner = false,
-  isDealer = false 
+  isDealer = false,
+  onBetComplete,
+  autoAdvance = true
 }) => {
   const { 
     gameState, 
@@ -64,10 +68,24 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   const handleBetSubmit = () => {
     submitBet(player.id);
     setBetAmount("");
+    
+    // Auto-advance to next player if enabled
+    if (autoAdvance && onBetComplete) {
+      setTimeout(() => {
+        onBetComplete();
+      }, 500); // Small delay for visual feedback
+    }
   };
   
   const handleFold = () => {
     fold(player.id);
+    
+    // Auto-advance to next player if enabled
+    if (autoAdvance && onBetComplete) {
+      setTimeout(() => {
+        onBetComplete();
+      }, 500); // Small delay for visual feedback
+    }
   };
   
   const handleBuyIn = () => {

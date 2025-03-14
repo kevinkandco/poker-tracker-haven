@@ -43,7 +43,17 @@ import {
 
 const BettingTracker = () => {
   const navigate = useNavigate();
-  const { gameState, nextRound, increaseBlindLevel, endGame, getShareUrl, resetHand, markWinner, setDealer } = useGameContext();
+  const { 
+    gameState, 
+    nextRound, 
+    increaseBlindLevel, 
+    endGame, 
+    getShareUrl, 
+    resetHand, 
+    markWinner, 
+    setDealer,
+    isRoundComplete
+  } = useGameContext();
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showWinnerDialog, setShowWinnerDialog] = useState(false);
@@ -57,6 +67,19 @@ const BettingTracker = () => {
       navigate('/');
     }
   }, [gameState, navigate]);
+  
+  // Auto advance to next round when round is complete
+  useEffect(() => {
+    if (autoAdvance && isRoundComplete() && !gameState.winner) {
+      // Add small delay for visual feedback
+      const timer = setTimeout(() => {
+        handleNextRound();
+        toast.info("Automatically advancing to next round");
+      }, 1500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [gameState, autoAdvance, isRoundComplete]);
   
   if (!gameState || !gameState.players || gameState.players.length === 0) {
     return null;
@@ -376,6 +399,19 @@ const BettingTracker = () => {
         </CardContent>
       </Card>
 
+      {/* Auto-advance toggle */}
+      <div className="flex items-center justify-end gap-2">
+        <span className="text-sm text-muted-foreground">Auto-advance:</span>
+        <button 
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${autoAdvance ? 'bg-primary' : 'bg-input'}`}
+          onClick={() => setAutoAdvance(!autoAdvance)}
+          role="switch"
+          aria-checked={autoAdvance}
+        >
+          <span className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform ${autoAdvance ? 'translate-x-5' : 'translate-x-0.5'}`} />
+        </button>
+      </div>
+
       {/* Texas Hold'em Step Tracker */}
       <Card className="bg-card border border-amber-200/50 shadow-sm overflow-hidden">
         <CardContent className="p-4">
@@ -448,6 +484,8 @@ const BettingTracker = () => {
             isActive={activePlayer && activePlayer.id === player.id}
             isWinner={gameState.winner === player.id}
             isDealer={gameState.dealerIndex === index}
+            onBetComplete={handleNextPlayer}
+            autoAdvance={autoAdvance}
           />
         ))}
       </div>

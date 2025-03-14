@@ -48,6 +48,17 @@ const GameSession = () => {
     loadGame();
   }, [location, gameState.allowAnonymousJoin, gameInProgress, loadGameByInviteCode]);
 
+  // Show help dialog for new games automatically
+  useEffect(() => {
+    if (gameInProgress && gameState.currentHand === 1 && gameState.currentRound === 1) {
+      // Only show after a short delay so it doesn't instantly pop up
+      const timer = setTimeout(() => {
+        setShowHelpDialog(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameInProgress, gameState.currentHand, gameState.currentRound]);
+
   const handleJoinSuccess = () => {
     setShowJoinDialog(false);
   };
@@ -149,7 +160,12 @@ const GameSession = () => {
               
               <div className="border rounded-md p-3">
                 <h3 className="font-medium">Using the App</h3>
-                <p className="text-muted-foreground">This app will guide you through each stage of the game. Follow the "Next Action" card to know what to do next. Click "Next Player" after each player's action, "Next Round" to move to the next betting round, and "End Hand" when the hand is complete.</p>
+                <p className="text-muted-foreground">This app will guide you through each stage of the game automatically. The betting will pass from player to player when they place a bet or fold. When all players have bet equally, the app will automatically advance to the next betting round. You can also toggle auto-advancement on/off if you prefer manual control.</p>
+              </div>
+
+              <div className="border rounded-md p-3 bg-amber-50">
+                <h3 className="font-medium text-amber-800">Auto-Advance Feature</h3>
+                <p className="text-amber-700">When auto-advance is enabled, the game will automatically move to the next round when all active players have bet equally. This helps guide beginners through the proper Texas Hold'em betting structure.</p>
               </div>
             </div>
           </div>

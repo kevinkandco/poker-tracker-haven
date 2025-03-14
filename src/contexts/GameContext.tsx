@@ -51,7 +51,8 @@ interface GameContextType {
   addAnonymousPlayer: (name: string, buyIn: number) => Promise<void>;
   toggleAnonymousJoin: () => void;
   loadGameByInviteCode: (inviteCode: string) => Promise<boolean>;
-  setDealer: (playerIndex: number) => void; // Add dealer setter
+  setDealer: (playerIndex: number) => void; // Dealer setter
+  isRoundComplete: () => boolean; // Check if round is complete
 }
 
 // Create context
@@ -237,6 +238,49 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         dealerIndex: playerIndex
       }));
     }
+  };
+
+  // Check if the current betting round is complete
+  // This is used for auto-advancing to the next round
+  const isRoundComplete = () => {
+    // If there's a winner, the round is complete
+    if (gameState.winner) return true;
+    
+    // If there's only one active player (everyone else folded), the round is complete
+    const activePlayers = gameState.players.filter(player => !player.folded);
+    if (activePlayers.length <= 1) return true;
+    
+    // Get all bets for the current round
+    const currentRoundBets = gameState.players
+      .filter(player => !player.folded)
+      .map(player => {
+        const betsInCurrentRound = player.bets.filter(bet => bet.round === gameState.currentRound);
+        return {
+          playerId: player.id,
+          totalBet: betsInCurrentRound.reduce((sum, bet) => sum + bet.amount, 0)
+        };
+      });
+    
+    // If any active player hasn't bet in this round, it's not complete
+    if (currentRoundBets.some(bet => bet.totalBet === 0)) {
+      return false;
+    }
+    
+    // Check if all bets are equal (or player is all-in)
+    const maxBet = Math.max(...currentRoundBets.map(bet => bet.totalBet));
+    
+    // For each player who hasn't bet the max, check if they're all-in
+    for (const player of gameState.players.filter(p => !p.folded)) {
+      const playerBet = currentRoundBets.find(bet => bet.playerId === player.id)?.totalBet || 0;
+      
+      // If player bet less than max but has chips left, round is not complete
+      if (playerBet < maxBet && player.currentStack > 0) {
+        return false;
+      }
+    }
+    
+    // If we got here, round is complete
+    return true;
   };
 
   // Start a new game
@@ -727,6 +771,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         toggleAnonymousJoin,
         loadGameByInviteCode,
         setDealer,
+        isRoundComplete,
       }}
     >
       {children}
