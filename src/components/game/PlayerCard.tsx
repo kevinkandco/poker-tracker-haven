@@ -4,7 +4,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, MinusCircle, RotateCw } from 'lucide-react';
+import { PlusCircle, MinusCircle, RotateCw, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useGameContext } from '@/contexts/GameContext';
@@ -13,9 +13,15 @@ interface PlayerCardProps {
   playerId: string;
   playerIndex: number;
   isActive?: boolean;
+  isWinner?: boolean;
 }
 
-const PlayerCard: React.FC<PlayerCardProps> = ({ playerId, playerIndex, isActive = false }) => {
+const PlayerCard: React.FC<PlayerCardProps> = ({ 
+  playerId, 
+  playerIndex, 
+  isActive = false,
+  isWinner = false 
+}) => {
   const { 
     gameState, 
     addBet, 
@@ -82,11 +88,20 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ playerId, playerIndex, isActive
       <Card className={cn(
         "overflow-hidden transition-all duration-300",
         isActive ? "ring-2 ring-primary shadow-md" : "",
+        isWinner ? "ring-2 ring-emerald-500 shadow-md" : "",
         player.folded ? "opacity-60" : ""
       )}>
         <CardContent className="p-5">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="font-medium truncate text-base">{player.name}</h3>
+            <h3 className="font-medium truncate text-base">
+              {player.name}
+              {isWinner && (
+                <span className="ml-2 inline-flex items-center text-emerald-500">
+                  <Trophy className="h-4 w-4 mr-0.5" />
+                  Winner
+                </span>
+              )}
+            </h3>
             {player.folded && <Badge variant="outline">Folded</Badge>}
           </div>
           
@@ -103,7 +118,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ playerId, playerIndex, isActive
           </div>
           
           <AnimatePresence>
-            {!player.folded && isActive && (
+            {!player.folded && isActive && !gameState.winner && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
@@ -179,7 +194,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ playerId, playerIndex, isActive
           </AnimatePresence>
         </CardContent>
         
-        {!player.folded && isActive && (
+        {!player.folded && isActive && !gameState.winner && (
           <CardFooter className="flex p-3 pt-0 gap-2">
             <Button 
               variant="default" 
@@ -199,7 +214,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ playerId, playerIndex, isActive
           </CardFooter>
         )}
         
-        {!isActive && !player.folded && (
+        {!isActive && !player.folded && !gameState.winner && (
           <CardFooter className="p-3 pt-0">
             <Button 
               variant="outline" 

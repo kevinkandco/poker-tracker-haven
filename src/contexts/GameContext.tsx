@@ -24,6 +24,7 @@ interface GameState {
   endTime?: string;
   gameId?: string;
   currentHand: number; // Track current hand number
+  winner?: string; // Track winner ID
 }
 
 interface GameContextType {
@@ -38,7 +39,8 @@ interface GameContextType {
   fold: (playerId: string) => void;
   endGame: () => void;
   getShareUrl: () => string;
-  resetHand: () => void; // New hand reset function
+  resetHand: () => void;
+  markWinner: (playerId: string) => void; // New function to mark the winner
 }
 
 // Create context
@@ -217,12 +219,40 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }));
   };
 
+  // Mark a player as the winner and award them the pot
+  const markWinner = (playerId: string) => {
+    setGameState(prevState => {
+      // Calculate total pot
+      const totalPot = prevState.players.reduce((sum, player) => sum + player.totalBet, 0);
+      
+      // Update the winner and award the pot
+      const updatedPlayers = prevState.players.map(player => {
+        if (player.id === playerId) {
+          return {
+            ...player,
+            currentStack: player.currentStack + totalPot,
+          };
+        }
+        return player;
+      });
+      
+      toast.success(`${updatedPlayers.find(p => p.id === playerId)?.name} won ${totalPot}!`);
+      
+      return {
+        ...prevState,
+        players: updatedPlayers,
+        winner: playerId,
+      };
+    });
+  };
+
   // Reset for a new hand
   const resetHand = () => {
     setGameState(prevState => ({
       ...prevState,
       currentRound: 1, // Reset to first round
       currentHand: prevState.currentHand + 1, // Increment hand counter
+      winner: undefined, // Clear winner
       players: prevState.players.map(player => ({
         ...player,
         bets: [], // Clear all bets for this hand
@@ -300,6 +330,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         endGame,
         getShareUrl,
         resetHand,
+        markWinner,
       }}
     >
       {children}

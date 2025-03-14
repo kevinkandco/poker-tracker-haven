@@ -5,17 +5,34 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import PlayerCard from './PlayerCard';
-import { ArrowRight, RotateCw, PlusCircle, History, DollarSign, Share2, Copy, RefreshCw } from 'lucide-react';
+import { ArrowRight, RotateCw, PlusCircle, History, DollarSign, Share2, Copy, RefreshCw, Trophy, CheckCircle2 } from 'lucide-react';
 import { useGameContext } from '@/contexts/GameContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger,
+  DialogFooter,
+  DialogDescription
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const BettingTracker = () => {
   const navigate = useNavigate();
-  const { gameState, nextRound, increaseBlindLevel, endGame, getShareUrl, resetHand } = useGameContext();
+  const { gameState, nextRound, increaseBlindLevel, endGame, getShareUrl, resetHand, markWinner } = useGameContext();
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showWinnerDialog, setShowWinnerDialog] = useState(false);
+  const [selectedWinner, setSelectedWinner] = useState<string>("");
   const shareUrl = getShareUrl();
   
   // Navigate to home if no game in progress
@@ -54,8 +71,21 @@ const BettingTracker = () => {
   };
 
   const handleNewHand = () => {
-    resetHand();
-    setActivePlayerIndex(0);
+    if (gameState.winner) {
+      resetHand();
+      setActivePlayerIndex(0);
+    } else {
+      setShowWinnerDialog(true);
+    }
+  };
+  
+  const handleConfirmWinner = () => {
+    if (selectedWinner) {
+      markWinner(selectedWinner);
+      setShowWinnerDialog(false);
+    } else {
+      toast.error("Please select a winner");
+    }
   };
   
   const handleIncreaseBlindLevel = () => {
@@ -80,6 +110,14 @@ const BettingTracker = () => {
     }
   };
 
+  const getWinnerName = () => {
+    if (!gameState.winner) return null;
+    const winner = gameState.players.find(p => p.id === gameState.winner);
+    return winner ? winner.name : null;
+  };
+
+  const winnerName = getWinnerName();
+
   return (
     <div className="w-full max-w-3xl mx-auto space-y-8 animate-fade-in pb-12">
       <div className="space-y-3">
@@ -93,6 +131,15 @@ const BettingTracker = () => {
           <div>
             Blinds: {formatCurrency(gameState.blinds.small)}/{formatCurrency(gameState.blinds.big)}
           </div>
+          {winnerName && (
+            <>
+              <div className="hidden sm:block">•</div>
+              <div className="flex items-center gap-1 text-emerald-500 font-medium">
+                <Trophy className="h-4 w-4" />
+                {winnerName} won
+              </div>
+            </>
+          )}
         </div>
       </div>
       
@@ -151,6 +198,18 @@ const BettingTracker = () => {
                 <PlusCircle className="h-4 w-4 mr-1" />
                 Blinds
               </Button>
+
+              {!gameState.winner && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-amber-500"
+                  onClick={() => setShowWinnerDialog(true)}
+                >
+                  <Trophy className="h-4 w-4 mr-1" />
+                  Mark Winner
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -163,16 +222,18 @@ const BettingTracker = () => {
             playerId={player.id} 
             playerIndex={index}
             isActive={activePlayer && activePlayer.id === player.id}
+            isWinner={gameState.winner === player.id}
           />
         ))}
       </div>
       
-      <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+      <div className="flex flex-col sm:flex-row gap-4 justify-center pt-6">
         <div className="flex gap-3 justify-center">
           <Button 
             variant="outline" 
             className="button-hover flex-1 sm:flex-none"
             onClick={handleNextPlayer}
+            disabled={!!gameState.winner}
           >
             Next Player
             <ArrowRight className="ml-1.5 h-4 w-4" />
@@ -182,6 +243,7 @@ const BettingTracker = () => {
             variant="outline" 
             className="button-hover flex-1 sm:flex-none"
             onClick={handleNextRound}
+            disabled={!!gameState.winner}
           >
             Next Round
             <RotateCw className="ml-1.5 h-4 w-4" />
@@ -191,11 +253,20 @@ const BettingTracker = () => {
         <div className="flex gap-3 justify-center">
           <Button 
             variant="default" 
-            className="button-hover flex-1 sm:flex-none"
+            className={`button-hover flex-1 sm:flex-none ${gameState.winner ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
             onClick={handleNewHand}
           >
-            New Hand
-            <RefreshCw className="ml-1.5 h-4 w-4" />
+            {gameState.winner ? (
+              <>
+                New Hand
+                <RefreshCw className="ml-1.5 h-4 w-4" />
+              </>
+            ) : (
+              <>
+                End Hand
+                <Trophy className="ml-1.5 h-4 w-4" />
+              </>
+            )}
           </Button>
           
           <Dialog>
@@ -246,6 +317,47 @@ const BettingTracker = () => {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Winner Selection Dialog */}
+      <Dialog open={showWinnerDialog} onOpenChange={setShowWinnerDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Who won this hand?</DialogTitle>
+            <DialogDescription>
+              Select the winner who will receive the pot of {formatCurrency(getTotalPot())}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Select
+              value={selectedWinner}
+              onValueChange={setSelectedWinner}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select winner" />
+              </SelectTrigger>
+              <SelectContent>
+                {gameState.players.map(player => (
+                  <SelectItem key={player.id} value={player.id}>
+                    {player.name} {player.folded ? " (Folded)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowWinnerDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmWinner}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              <CheckCircle2 className="h-4 w-4 mr-1" />
+              Confirm Winner
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
