@@ -5,7 +5,21 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import PlayerCard from './PlayerCard';
-import { ArrowRight, RotateCw, PlusCircle, History, DollarSign, Share2, Copy, RefreshCw, Trophy, CheckCircle2 } from 'lucide-react';
+import { 
+  ArrowRight, 
+  RotateCw, 
+  PlusCircle, 
+  History, 
+  DollarSign, 
+  Share2, 
+  Copy, 
+  RefreshCw, 
+  Trophy, 
+  CheckCircle2, 
+  UserRound, 
+  CircleDot, 
+  Coins 
+} from 'lucide-react';
 import { useGameContext } from '@/contexts/GameContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -28,7 +42,7 @@ import {
 
 const BettingTracker = () => {
   const navigate = useNavigate();
-  const { gameState, nextRound, increaseBlindLevel, endGame, getShareUrl, resetHand, markWinner } = useGameContext();
+  const { gameState, nextRound, increaseBlindLevel, endGame, getShareUrl, resetHand, markWinner, setDealer } = useGameContext();
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showWinnerDialog, setShowWinnerDialog] = useState(false);
@@ -73,7 +87,12 @@ const BettingTracker = () => {
   const handleNewHand = () => {
     if (gameState.winner) {
       resetHand();
+      // Move dealer to next player
+      const nextDealerIndex = (gameState.dealerIndex !== undefined ? 
+        (gameState.dealerIndex + 1) % gameState.players.length : 0);
+      setDealer(nextDealerIndex);
       setActivePlayerIndex(0);
+      toast.success(`Dealer is now ${gameState.players[nextDealerIndex].name}`);
     } else {
       setShowWinnerDialog(true);
     }
@@ -116,7 +135,36 @@ const BettingTracker = () => {
     return winner ? winner.name : null;
   };
 
+  const getDealerName = () => {
+    if (gameState.dealerIndex === undefined) return null;
+    const dealer = gameState.players[gameState.dealerIndex];
+    return dealer ? dealer.name : null;
+  };
+
   const winnerName = getWinnerName();
+  const dealerName = getDealerName();
+
+  const currentRoundLabel = () => {
+    switch(gameState.currentRound) {
+      case 1: return "Pre-flop";
+      case 2: return "Flop";
+      case 3: return "Turn";
+      case 4: return "River";
+      default: return `Round ${gameState.currentRound}`;
+    }
+  };
+
+  const getNextActionText = () => {
+    if (gameState.winner) {
+      return "Start new hand";
+    }
+    
+    if (activePlayer) {
+      return `${activePlayer.name}'s turn to bet`;
+    }
+    
+    return "Next player's turn";
+  };
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-8 animate-fade-in pb-12">
@@ -125,12 +173,21 @@ const BettingTracker = () => {
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-muted-foreground">
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="font-normal">Hand #{gameState.currentHand}</Badge>
-            <Badge variant="outline" className="font-normal">Round {gameState.currentRound}</Badge>
+            <Badge variant="outline" className="font-normal">{currentRoundLabel()}</Badge>
           </div>
           <div className="hidden sm:block">•</div>
           <div>
             Blinds: {formatCurrency(gameState.blinds.small)}/{formatCurrency(gameState.blinds.big)}
           </div>
+          {dealerName && (
+            <>
+              <div className="hidden sm:block">•</div>
+              <div className="flex items-center gap-1 text-primary font-medium">
+                <UserRound className="h-4 w-4" />
+                {dealerName} dealing
+              </div>
+            </>
+          )}
           {winnerName && (
             <>
               <div className="hidden sm:block">•</div>
@@ -148,7 +205,10 @@ const BettingTracker = () => {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="w-full sm:w-auto">
               <p className="text-sm text-muted-foreground mb-1">Current Pot</p>
-              <p className="text-3xl font-bold">{formatCurrency(getTotalPot())}</p>
+              <div className="flex items-center gap-2">
+                <Coins className="h-5 w-5 text-amber-500" />
+                <p className="text-3xl font-bold">{formatCurrency(getTotalPot())}</p>
+              </div>
             </div>
             <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-start sm:justify-end">
               <Button variant="outline" size="sm" onClick={() => setShowShareDialog(true)}>
@@ -214,6 +274,29 @@ const BettingTracker = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Next Action Card */}
+      <Card className="bg-card border border-primary/30 shadow-sm overflow-hidden">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CircleDot className="h-5 w-5 text-primary" />
+              <p className="font-medium">{getNextActionText()}</p>
+            </div>
+            {!gameState.winner && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="button-hover"
+                onClick={handleNextPlayer}
+              >
+                Next Player
+                <ArrowRight className="ml-1.5 h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         {gameState.players.map((player, index) => (
@@ -223,6 +306,7 @@ const BettingTracker = () => {
             playerIndex={index}
             isActive={activePlayer && activePlayer.id === player.id}
             isWinner={gameState.winner === player.id}
+            isDealer={gameState.dealerIndex === index}
           />
         ))}
       </div>

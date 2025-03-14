@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, MinusCircle, RotateCw, Trophy } from 'lucide-react';
+import { PlusCircle, MinusCircle, RotateCw, Trophy, Coins, UserRound } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useGameContext } from '@/contexts/GameContext';
@@ -14,13 +15,15 @@ interface PlayerCardProps {
   playerIndex: number;
   isActive?: boolean;
   isWinner?: boolean;
+  isDealer?: boolean;
 }
 
 const PlayerCard: React.FC<PlayerCardProps> = ({ 
   playerId, 
   playerIndex, 
   isActive = false,
-  isWinner = false 
+  isWinner = false,
+  isDealer = false 
 }) => {
   const { 
     gameState, 
@@ -91,6 +94,24 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
     gameState.blinds.big * 4,  // 2x raise
     player.currentStack        // All-in
   ].filter(amount => amount > 0 && amount <= player.currentStack);
+
+  const getCardStyles = () => {
+    let styles = "overflow-hidden transition-all duration-300";
+
+    if (isActive) {
+      styles += " ring-2 ring-amber-500 shadow-md";
+    } else if (isWinner) {
+      styles += " ring-2 ring-emerald-500 shadow-md";
+    } else if (isDealer) {
+      styles += " ring-2 ring-primary shadow-md";
+    }
+
+    if (player.folded) {
+      styles += " opacity-60";
+    }
+
+    return styles;
+  };
   
   return (
     <motion.div
@@ -99,35 +120,54 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.2, delay: playerIndex * 0.05 }}
     >
-      <Card className={cn(
-        "overflow-hidden transition-all duration-300",
-        isActive ? "ring-2 ring-primary shadow-md" : "",
-        isWinner ? "ring-2 ring-emerald-500 shadow-md" : "",
-        player.folded ? "opacity-60" : ""
-      )}>
+      <Card className={cn(getCardStyles())}>
         <CardContent className="p-5">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="font-medium truncate text-base">
-              {player.name}
-              {isWinner && (
-                <span className="ml-2 inline-flex items-center text-emerald-500">
-                  <Trophy className="h-4 w-4 mr-0.5" />
-                  Winner
-                </span>
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium truncate text-base">
+                {player.name}
+                {isWinner && (
+                  <span className="ml-2 inline-flex items-center text-emerald-500">
+                    <Trophy className="h-4 w-4 mr-0.5" />
+                    Winner
+                  </span>
+                )}
+              </h3>
+              {isDealer && (
+                <Badge variant="outline" className="bg-primary text-primary-foreground">
+                  <UserRound className="h-3 w-3 mr-1" />
+                  Dealer
+                </Badge>
               )}
-            </h3>
+            </div>
             {player.folded && <Badge variant="outline">Folded</Badge>}
           </div>
           
           <div className="flex justify-between items-center mb-5">
             <div>
               <p className="text-xs text-muted-foreground mb-1">Stack</p>
-              <p className="text-xl font-semibold">{formatCurrency(player.currentStack)}</p>
+              <div className="flex items-center gap-1">
+                <Coins className={cn(
+                  "h-4 w-4",
+                  isActive ? "text-amber-500" : "text-muted-foreground"
+                )} />
+                <p className={cn(
+                  "text-xl font-semibold",
+                  isActive ? "text-amber-500" : ""
+                )}>
+                  {formatCurrency(player.currentStack)}
+                </p>
+              </div>
             </div>
             
             <div className="text-right">
               <p className="text-xs text-muted-foreground mb-1">Total Bet</p>
-              <p className="text-xl font-semibold">{formatCurrency(totalBet)}</p>
+              <p className={cn(
+                "text-xl font-semibold",
+                totalBet > 0 ? "text-emerald-600" : ""
+              )}>
+                {formatCurrency(totalBet)}
+              </p>
             </div>
           </div>
           
@@ -198,7 +238,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-center text-sm font-medium"
+                    className="text-center text-sm font-medium text-amber-500"
                   >
                     Current bet: {formatCurrency(currentBet)}
                   </motion.div>
@@ -212,7 +252,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
           <CardFooter className="flex p-3 pt-0 gap-2">
             <Button 
               variant="default" 
-              className="flex-1 h-9 button-hover"
+              className="flex-1 h-9 button-hover bg-amber-500 hover:bg-amber-600"
               onClick={handleBetSubmit}
               disabled={currentBet <= 0}
             >

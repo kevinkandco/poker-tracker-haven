@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,6 +31,7 @@ interface GameState {
   winner?: string; // Track winner ID
   inviteCode?: string; // For sharing and joining
   allowAnonymousJoin?: boolean;
+  dealerIndex?: number; // Track dealer position
 }
 
 interface GameContextType {
@@ -49,6 +51,7 @@ interface GameContextType {
   addAnonymousPlayer: (name: string, buyIn: number) => Promise<void>;
   toggleAnonymousJoin: () => void;
   loadGameByInviteCode: (inviteCode: string) => Promise<boolean>;
+  setDealer: (playerIndex: number) => void; // Add dealer setter
 }
 
 // Create context
@@ -65,6 +68,7 @@ const initialGameState: GameState = {
   startTime: '',
   currentHand: 1, // Start with hand #1
   allowAnonymousJoin: false,
+  dealerIndex: 0, // Default dealer is first player
 };
 
 // Provider component
@@ -130,6 +134,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 currentHand: 1,
                 inviteCode: gameData.invite_code,
                 allowAnonymousJoin: gameData.allow_anonymous_join,
+                dealerIndex: 0, // Default to first player as dealer
               });
               
               foundGame = true;
@@ -204,6 +209,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           currentHand: 1,
           inviteCode: gameData.invite_code,
           allowAnonymousJoin: gameData.allow_anonymous_join,
+          dealerIndex: 0, // Default to first player as dealer
         });
         
         return true;
@@ -222,6 +228,16 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.setItem('pokerGameState', JSON.stringify(gameState));
     }
   }, [gameState, isInitialized]);
+
+  // Set dealer position
+  const setDealer = (playerIndex: number) => {
+    if (playerIndex >= 0 && playerIndex < gameState.players.length) {
+      setGameState(prevState => ({
+        ...prevState,
+        dealerIndex: playerIndex
+      }));
+    }
+  };
 
   // Start a new game
   const startGame = async (initialState: GameState) => {
@@ -282,7 +298,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             currentHand: 1,
             gameId,
             inviteCode,
-            allowAnonymousJoin: initialState.allowAnonymousJoin || false
+            allowAnonymousJoin: initialState.allowAnonymousJoin || false,
+            dealerIndex: 0 // First player starts as dealer
           };
           
           setGameState(newGameState);
@@ -300,7 +317,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         currentHand: 1,
         gameId,
         inviteCode,
-        allowAnonymousJoin: initialState.allowAnonymousJoin || false
+        allowAnonymousJoin: initialState.allowAnonymousJoin || false,
+        dealerIndex: 0 // First player starts as dealer
       };
       
       setGameState(newGameState);
@@ -671,6 +689,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         addAnonymousPlayer,
         toggleAnonymousJoin,
         loadGameByInviteCode,
+        setDealer,
       }}
     >
       {children}
