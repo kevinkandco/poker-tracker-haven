@@ -26,7 +26,8 @@ const BettingTracker = () => {
     resetHand, 
     markWinner, 
     setDealer,
-    isRoundComplete
+    isRoundComplete,
+    addBet
   } = useGameContext();
   
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
@@ -35,6 +36,7 @@ const BettingTracker = () => {
   const [selectedWinner, setSelectedWinner] = useState<string>("");
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [isAdvancing, setIsAdvancing] = useState(false);
+  const [blindsPosted, setBlindsPosted] = useState(false); // Track if blinds have been posted for current hand
   const shareUrl = getShareUrl();
   
   // Navigate to home if no game in progress
@@ -61,10 +63,55 @@ const BettingTracker = () => {
       return () => clearTimeout(timer);
     }
   }, [gameState, autoAdvance, isRoundComplete, isAdvancing]);
+
+  // Post blinds automatically at the start of a new hand
+  useEffect(() => {
+    // Only post blinds at the start of a hand (round 1) and if not already posted
+    if (gameState.currentRound === 1 && !blindsPosted && gameState.players.length >= 2) {
+      postBlinds();
+      setBlindsPosted(true);
+    }
+  }, [gameState.currentRound, gameState.currentHand, blindsPosted]);
+
+  // Reset blinds posted state when moving to a new hand
+  useEffect(() => {
+    if (gameState.currentRound === 1) {
+      setBlindsPosted(false);
+    }
+  }, [gameState.currentHand]);
   
   if (!gameState || !gameState.players || gameState.players.length === 0) {
     return null;
   }
+
+  // Function to automatically post small and big blinds
+  const postBlinds = () => {
+    const dealerIndex = gameState.dealerIndex || 0;
+    const numPlayers = gameState.players.length;
+    
+    // Get small blind player (next after dealer)
+    const sbIndex = (dealerIndex + 1) % numPlayers;
+    const sbPlayer = gameState.players[sbIndex];
+    
+    // Get big blind player (next after small blind)
+    const bbIndex = (dealerIndex + 2) % numPlayers;
+    const bbPlayer = gameState.players[bbIndex];
+    
+    // Post small blind
+    if (sbPlayer) {
+      const sbAmount = Math.min(gameState.blinds.small, sbPlayer.currentStack);
+      addBet(sbPlayer.id, sbAmount);
+    }
+    
+    // Post big blind
+    if (bbPlayer) {
+      const bbAmount = Math.min(gameState.blinds.big, bbPlayer.currentStack);
+      addBet(bbPlayer.id, bbAmount);
+    }
+    
+    // Set active player to UTG (next after big blind)
+    setActivePlayerIndex((dealerIndex + 3) % numPlayers);
+  };
 
   const activePlayers = gameState.players.filter(player => !player.folded);
   const activePlayer = activePlayers.length > 0 ? 
