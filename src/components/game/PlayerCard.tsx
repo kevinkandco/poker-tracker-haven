@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +16,9 @@ interface PlayerCardProps {
   isActive?: boolean;
   isWinner?: boolean;
   isDealer?: boolean;
+  isSmallBlind?: boolean;
+  isBigBlind?: boolean;
+  blindsPosted?: boolean;
   onBetComplete?: () => void;
   autoAdvance?: boolean;
 }
@@ -27,6 +29,9 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   isActive = false,
   isWinner = false,
   isDealer = false,
+  isSmallBlind = false,
+  isBigBlind = false,
+  blindsPosted = false,
   onBetComplete,
   autoAdvance = true
 }) => {
@@ -44,7 +49,6 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   const [showBuyInDialog, setShowBuyInDialog] = useState(false);
   const [buyInAmount, setBuyInAmount] = useState<string>("");
   const [useSlider, setUseSlider] = useState(false);
-  const [blindsHandled, setBlindsHandled] = useState(false);
   
   if (!player) return null;
   
@@ -55,15 +59,13 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   // Get the player position role
   const getPlayerRole = () => {
     if (isDealer) return "Dealer (D)";
+    if (isSmallBlind) return "Small Blind (SB)";
+    if (isBigBlind) return "Big Blind (BB)";
     
     const dealerIndex = gameState.dealerIndex || 0;
     const numPlayers = gameState.players.length;
     
-    if (playerIndex === (dealerIndex + 1) % numPlayers) {
-      return "Small Blind (SB)";
-    } else if (playerIndex === (dealerIndex + 2) % numPlayers) {
-      return "Big Blind (BB)";
-    } else if (playerIndex === (dealerIndex + 3) % numPlayers) {
+    if (playerIndex === (dealerIndex + 3) % numPlayers) {
       return "UTG";
     }
     
@@ -71,8 +73,6 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   };
 
   const playerRole = getPlayerRole();
-  const isSB = playerRole === "Small Blind (SB)";
-  const isBB = playerRole === "Big Blind (BB)";
   
   // Handle player making the minimum bet (call)
   const handleQuickBet = (amount: number) => {
@@ -181,14 +181,14 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   const minRaiseAmount = callAmount + gameState.blinds.big;
 
   // For blinds, calculate how much more they need to add to complete their action
-  const isSmallBlind = isSB && gameState.currentRound === 1;
-  const isBigBlind = isBB && gameState.currentRound === 1;
+  const hasPostedSmallBlind = isSmallBlind && blindsPosted && gameState.currentRound === 1;
+  const hasPostedBigBlind = isBigBlind && blindsPosted && gameState.currentRound === 1;
   
   // If small blind, they've already bet SB amount, so they need to call the difference to BB
-  const sbRaiseAmount = isSmallBlind ? gameState.blinds.big - gameState.blinds.small : minRaiseAmount;
+  const sbCallAmount = hasPostedSmallBlind ? gameState.blinds.big - gameState.blinds.small : callAmount;
   
   // For big blind, they've already bet BB amount, so they need to call any additional raises
-  const bbCallAmount = isBigBlind ? Math.max(0, highestCurrentBet - gameState.blinds.big) : callAmount;
+  const bbCallAmount = hasPostedBigBlind ? Math.max(0, highestCurrentBet - gameState.blinds.big) : callAmount;
 
   // Suggested bets 
   const suggestedBets = [
@@ -214,6 +214,18 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
 
     return styles;
   };
+
+  // Define text for blind status
+  const getBlindStatusText = () => {
+    if (hasPostedSmallBlind) {
+      return `Small blind ($${gameState.blinds.small}) posted`;
+    } else if (hasPostedBigBlind) {
+      return `Big blind ($${gameState.blinds.big}) posted`;
+    }
+    return null;
+  };
+
+  const blindStatusText = getBlindStatusText();
 
   return (
     <motion.div
@@ -242,7 +254,10 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
                 </Badge>
               )}
               {playerRole && !isDealer && (
-                <Badge variant="outline" className="text-muted-foreground">
+                <Badge variant="outline" className={cn(
+                  "text-muted-foreground",
+                  (hasPostedSmallBlind || hasPostedBigBlind) && "bg-amber-50 border-amber-200"
+                )}>
                   {playerRole}
                 </Badge>
               )}
@@ -278,6 +293,15 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
             </div>
           </div>
           
+          {/* Blind status indicator */}
+          {blindStatusText && (
+            <div className="mb-3">
+              <Badge variant="outline" className="bg-amber-50 border-amber-200 text-amber-700 w-full justify-center py-1">
+                {blindStatusText}
+              </Badge>
+            </div>
+          )}
+          
           <AnimatePresence>
             {!player.folded && isActive && !gameState.winner && (
               <motion.div
@@ -288,38 +312,78 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
               >
                 {/* Primary Action Buttons */}
                 <div className="flex gap-2">
-                  {canCheck && (
+                  {/* For small blind who has posted */}
+                  {hasPostedSmallBlind && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleQuickBet(sbCallAmount)}
+                      className="px-2 h-7 flex-1 hover:bg-secondary/50"
+                      disabled={player.currentStack <= 0}
+                    >
+                      {sbCallAmount > 0 ? `Complete to ${formatCurrency(gameState.blinds.big)}` : "Check"}
+                    </Button>
+                  )}
+                  
+                  {/* For big blind who has posted */}
+                  {hasPostedBigBlind && canCheck && (
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={handleCheck}
                       className="px-2 h-7 flex-1 hover:bg-secondary/50"
                     >
-                      <CheckCircle className="h-3.5 w-3.5 mr-1" />
                       Check
                     </Button>
                   )}
                   
-                  {!canCheck && (
+                  {/* For big blind who has posted but needs to call */}
+                  {hasPostedBigBlind && !canCheck && (
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => handleQuickBet(isSmallBlind ? sbRaiseAmount : (isBigBlind ? bbCallAmount : callAmount))}
+                      onClick={() => handleQuickBet(bbCallAmount)}
                       className="px-2 h-7 flex-1 hover:bg-secondary/50"
                       disabled={player.currentStack <= 0}
                     >
-                      {isSmallBlind ? `Call ${formatCurrency(sbRaiseAmount)}` : 
-                       isBigBlind ? (bbCallAmount > 0 ? `Call ${formatCurrency(bbCallAmount)}` : "Check") : 
-                       `Call ${formatCurrency(callAmount)}`}
+                      {`Call ${formatCurrency(bbCallAmount)}`}
                     </Button>
                   )}
                   
-                  {(minRaiseAmount <= player.currentStack || (isSmallBlind && sbRaiseAmount < player.currentStack)) && (
+                  {/* For normal players */}
+                  {!hasPostedSmallBlind && !hasPostedBigBlind && canCheck && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleCheck}
+                      className="px-2 h-7 flex-1 hover:bg-secondary/50"
+                    >
+                      Check
+                    </Button>
+                  )}
+                  
+                  {!hasPostedSmallBlind && !hasPostedBigBlind && !canCheck && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleQuickBet(callAmount)}
+                      className="px-2 h-7 flex-1 hover:bg-secondary/50"
+                      disabled={player.currentStack <= 0}
+                    >
+                      {`Call ${formatCurrency(callAmount)}`}
+                    </Button>
+                  )}
+                  
+                  {/* Raise button for everyone */}
+                  {minRaiseAmount <= player.currentStack && (
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={() => {
-                        handleQuickBet(isSmallBlind ? sbRaiseAmount + gameState.blinds.big : minRaiseAmount);
+                        const raiseAmount = hasPostedSmallBlind ? sbCallAmount + gameState.blinds.big :
+                                          hasPostedBigBlind ? gameState.blinds.big :
+                                          minRaiseAmount;
+                        handleQuickBet(raiseAmount);
                         setUseSlider(true);
                       }}
                       className="px-2 h-7 flex-1 hover:bg-primary/10"
@@ -356,58 +420,55 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
                   </div>
                 )}
                 
-                {/* Bet Input Controls */}
-                {useSlider ? (
-                  <div className="space-y-3">
-                    <div className="pt-2">
-                      <Slider 
-                        value={[parseInt(betAmount) || 0]} 
-                        min={isSmallBlind ? sbRaiseAmount : minRaiseAmount}
-                        max={player.currentStack}
-                        step={gameState.blinds.small}
-                        onValueChange={handleSliderChange}
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="icon"
-                        className="h-8 w-8 shrink-0"
-                        onClick={() => {
-                          const minAmount = isSmallBlind ? sbRaiseAmount : minRaiseAmount;
-                          const newAmount = Math.max(minAmount, (parseInt(betAmount) || 0) - gameState.blinds.big);
-                          setBetAmount(newAmount.toString());
-                          updateCurrentBet(player.id, newAmount);
-                        }}
-                      >
-                        <MinusCircle className="h-4 w-4" />
-                      </Button>
-                      
-                      <Input
-                        value={betAmount}
-                        onChange={handleBetAmountChange}
-                        className="h-8 text-center input-focus"
-                        placeholder={`Bet amount...`}
-                      />
-                      
-                      <Button 
-                        variant="outline" 
-                        size="icon"
-                        className="h-8 w-8 shrink-0"
-                        onClick={() => {
-                          const newAmount = Math.min(
-                            player.currentStack, 
-                            (parseInt(betAmount) || 0) + gameState.blinds.big
-                          );
-                          setBetAmount(newAmount.toString());
-                          updateCurrentBet(player.id, newAmount);
-                        }}
-                      >
-                        <PlusCircle className="h-4 w-4" />
-                      </Button>
-                    </div>
+                {/* Rest of the betting controls */}
+                <div className="space-y-3">
+                  <div className="pt-2">
+                    <Slider 
+                      value={[parseInt(betAmount) || 0]} 
+                      min={0}
+                      max={player.currentStack}
+                      step={gameState.blinds.small}
+                      onValueChange={handleSliderChange}
+                    />
                   </div>
-                ) : null}
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => {
+                        const newAmount = Math.max(0, (parseInt(betAmount) || 0) - gameState.blinds.big);
+                        setBetAmount(newAmount.toString());
+                        updateCurrentBet(player.id, newAmount);
+                      }}
+                    >
+                      <MinusCircle className="h-4 w-4" />
+                    </Button>
+                    
+                    <Input
+                      value={betAmount}
+                      onChange={handleBetAmountChange}
+                      className="h-8 text-center input-focus"
+                      placeholder={`Bet amount...`}
+                    />
+                    
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => {
+                        const newAmount = Math.min(
+                          player.currentStack, 
+                          (parseInt(betAmount) || 0) + gameState.blinds.big
+                        );
+                        setBetAmount(newAmount.toString());
+                        updateCurrentBet(player.id, newAmount);
+                      }}
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
                 
                 {/* Current Bet Display */}
                 {currentBet > 0 && (
@@ -418,19 +479,6 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
                   >
                     Current bet: {formatCurrency(currentBet)}
                   </motion.div>
-                )}
-                
-                {/* Special Blind Info */}
-                {isSmallBlind && gameState.currentRound === 1 && (
-                  <div className="text-center text-xs text-muted-foreground">
-                    Small blind ${gameState.blinds.small} already posted
-                  </div>
-                )}
-                
-                {isBigBlind && gameState.currentRound === 1 && (
-                  <div className="text-center text-xs text-muted-foreground">
-                    Big blind ${gameState.blinds.big} already posted
-                  </div>
                 )}
               </motion.div>
             )}
@@ -445,15 +493,18 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
               className="flex-1 h-9 button-hover bg-amber-500 hover:bg-amber-600"
               onClick={handleBetSubmit}
               disabled={(!canCheck && currentBet <= 0) || 
-                (currentBet < (isSmallBlind ? sbRaiseAmount : (isBigBlind ? bbCallAmount : callAmount)) && 
-                currentBet !== player.currentStack)}
+                (hasPostedSmallBlind && currentBet < sbCallAmount && currentBet !== player.currentStack) ||
+                (hasPostedBigBlind && !canCheck && currentBet < bbCallAmount && currentBet !== player.currentStack) ||
+                (!hasPostedSmallBlind && !hasPostedBigBlind && !canCheck && currentBet < callAmount && currentBet !== player.currentStack)}
             >
               {canCheck && currentBet === 0 ? "Check" :
-               isSmallBlind && currentBet === sbRaiseAmount ? "Call" :
-               isBigBlind && currentBet === bbCallAmount ? (bbCallAmount === 0 ? "Check" : "Call") :
-               currentBet === callAmount ? "Call" :
+               hasPostedSmallBlind && currentBet === sbCallAmount ? "Complete" :
+               hasPostedBigBlind && canCheck && currentBet === 0 ? "Check" :
+               hasPostedBigBlind && currentBet === bbCallAmount ? "Call" :
+               !hasPostedSmallBlind && !hasPostedBigBlind && currentBet === callAmount ? "Call" :
                currentBet === player.currentStack ? "All-In" :
-               currentBet > callAmount ? "Raise" : "Bet"}
+               currentBet > (hasPostedSmallBlind ? sbCallAmount : (hasPostedBigBlind ? bbCallAmount : callAmount)) ? "Raise" : 
+               "Bet"}
             </Button>
             <Button 
               variant="outline" 

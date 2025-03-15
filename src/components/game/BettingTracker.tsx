@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useGameContext } from '@/contexts/GameContext';
 import { useNavigate } from 'react-router-dom';
@@ -67,7 +66,7 @@ const BettingTracker = () => {
   // Post blinds automatically at the start of a new hand
   useEffect(() => {
     // Only post blinds at the start of a hand (round 1) and if not already posted
-    if (gameState.currentRound === 1 && !blindsPosted && gameState.players.length >= 2) {
+    if (gameState.currentRound === 1 && !blindsPosted && gameState.players.length >= 3) {
       postBlinds();
       setBlindsPosted(true);
     }
@@ -101,12 +100,14 @@ const BettingTracker = () => {
     if (sbPlayer) {
       const sbAmount = Math.min(gameState.blinds.small, sbPlayer.currentStack);
       addBet(sbPlayer.id, sbAmount);
+      toast.info(`${sbPlayer.name} posts small blind: $${sbAmount}`);
     }
     
     // Post big blind
     if (bbPlayer) {
       const bbAmount = Math.min(gameState.blinds.big, bbPlayer.currentStack);
       addBet(bbPlayer.id, bbAmount);
+      toast.info(`${bbPlayer.name} posts big blind: $${bbAmount}`);
     }
     
     // Set active player to UTG (next after big blind)
@@ -253,18 +254,29 @@ const BettingTracker = () => {
       
       {/* Player Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {gameState.players.map((player, index) => (
-          <PlayerCard 
-            key={player.id} 
-            playerId={player.id} 
-            playerIndex={index}
-            isActive={activePlayer && activePlayer.id === player.id}
-            isWinner={gameState.winner === player.id}
-            isDealer={gameState.dealerIndex === index}
-            onBetComplete={handleNextPlayer}
-            autoAdvance={autoAdvance}
-          />
-        ))}
+        {gameState.players.map((player, index) => {
+          // Determine if player is a small or big blind
+          const dealerIndex = gameState.dealerIndex || 0;
+          const numPlayers = gameState.players.length;
+          const isSmallBlind = index === ((dealerIndex + 1) % numPlayers);
+          const isBigBlind = index === ((dealerIndex + 2) % numPlayers);
+          
+          return (
+            <PlayerCard 
+              key={player.id} 
+              playerId={player.id} 
+              playerIndex={index}
+              isActive={activePlayer && activePlayer.id === player.id}
+              isWinner={gameState.winner === player.id}
+              isDealer={gameState.dealerIndex === index}
+              isSmallBlind={isSmallBlind}
+              isBigBlind={isBigBlind}
+              blindsPosted={blindsPosted}
+              onBetComplete={handleNextPlayer}
+              autoAdvance={autoAdvance}
+            />
+          );
+        })}
       </div>
       
       {/* End Game Button */}

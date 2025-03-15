@@ -38,6 +38,7 @@ const GameSetup = () => {
   const [players, setPlayers] = useState<Player[]>([
     { id: '1', name: '', buyIn: 50 },
     { id: '2', name: '', buyIn: 50 },
+    { id: '3', name: '', buyIn: 50 }, // Start with 3 players by default
   ]);
   const [smallBlind, setSmallBlind] = useState(1);
   const [bigBlind, setBigBlind] = useState(2);
@@ -73,8 +74,8 @@ const GameSetup = () => {
   };
 
   const removePlayer = (id: string) => {
-    if (players.length <= 2) {
-      toast.warning("Minimum 2 players required");
+    if (players.length <= 3) {
+      toast.warning("Minimum 3 players required");
       return;
     }
     
@@ -109,6 +110,12 @@ const GameSetup = () => {
 
   const goToNextStep = () => {
     if (currentStep === "players") {
+      // Validate player count
+      if (players.length < 3) {
+        toast.error("At least 3 players are required");
+        return;
+      }
+      
       // Validate player names before proceeding
       const emptyNames = players.some(player => !player.name.trim());
       if (emptyNames) {
